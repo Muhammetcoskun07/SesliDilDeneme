@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35506.116 d17.12
+VisualStudioVersion = 17.12.35506.116
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SesliDilDeneme.API", "SesliDilDeneme.API.csproj", "{EC95898C-7F07-43FB-AE0C-5D93F43E6A88}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SesliDil.Core", "..\SesliDil.Core\SesliDil.Core.csproj", "{7DF19E25-6446-4C3A-A044-4350B51FB98F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{EC95898C-7F07-43FB-AE0C-5D93F43E6A88}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EC95898C-7F07-43FB-AE0C-5D93F43E6A88}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EC95898C-7F07-43FB-AE0C-5D93F43E6A88}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7DF19E25-6446-4C3A-A044-4350B51FB98F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7DF19E25-6446-4C3A-A044-4350B51FB98F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7DF19E25-6446-4C3A-A044-4350B51FB98F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7DF19E25-6446-4C3A-A044-4350B51FB98F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
