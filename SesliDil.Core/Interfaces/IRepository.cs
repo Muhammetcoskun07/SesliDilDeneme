@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace SesliDil.Core.Interfaces
 {
-    internal interface IProgressRepository
+    public interface IRepository
     {
+
     }
 }
