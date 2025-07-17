@@ -15,5 +15,7 @@ namespace SesliDil.Core.Entities
         public int Age { get; set; }
         public DateTime RegistrationDate { get; set; }
 
+        public ICollection<Progress> Progress {  get; set; }
+
     }
 }
