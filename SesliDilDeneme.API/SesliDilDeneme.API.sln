@@ -9,6 +9,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SesliDil.Core", "..\SesliDi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SesliDil.Data", "..\SesliDil.Data\SesliDil.Data.csproj", "{7BA67C25-15F8-4841-901C-CC6B567B65F0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SesliDil.Service", "..\SesliDil.Service\SesliDil.Service.csproj", "{0583B2B7-16BB-4695-987F-25587A466E3C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7BA67C25-15F8-4841-901C-CC6B567B65F0} = {7BA67C25-15F8-4841-901C-CC6B567B65F0}
+		{7DF19E25-6446-4C3A-A044-4350B51FB98F} = {7DF19E25-6446-4C3A-A044-4350B51FB98F}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +33,10 @@ Global
 		{7BA67C25-15F8-4841-901C-CC6B567B65F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7BA67C25-15F8-4841-901C-CC6B567B65F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7BA67C25-15F8-4841-901C-CC6B567B65F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0583B2B7-16BB-4695-987F-25587A466E3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0583B2B7-16BB-4695-987F-25587A466E3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0583B2B7-16BB-4695-987F-25587A466E3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0583B2B7-16BB-4695-987F-25587A466E3C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
