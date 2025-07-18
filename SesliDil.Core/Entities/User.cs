@@ -14,6 +14,7 @@ namespace SesliDil.Core.Entities
         public string Gender { get; set; }
         public int Age { get; set; }
         public DateTime RegistrationDate { get; set; }
+        public int Streak { get; set; }
 
         public ICollection<Progress> Progress {  get; set; }
 
