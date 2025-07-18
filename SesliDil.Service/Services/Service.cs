@@ -6,17 +6,33 @@ using System.Threading.Tasks;
 using SesliDil.Core.Interfaces;
 using SesliDil.Service.Interfaces;
 using SesliDil.Core.Mappings;
+using SesliDil.Core.Entities;
+using AutoMapper;
 
 namespace SesliDil.Service.Services
 {
     public class Service<T> : IService<T> where T : class
     {
         private readonly IRepository<T> _repository;
-        
-        public Service(IRepository<T> repository)
+        private IRepository<Conversation> conversationRepository;
+        private IMapper mapper;
+        private IRepository<User> repository;
+
+        public Service(IRepository<T> repository, MappingProfile mapper)
         {
             _repository = repository;
             
+        }
+
+        public Service(IRepository<Conversation> conversationRepository, IMapper mapper)
+        {
+            this.conversationRepository = conversationRepository;
+            this.mapper = mapper;
+        }
+
+        public Service(IRepository<User> repository)
+        {
+            this.repository = repository;
         }
 
         public async Task<T> GetByIdAsync(int id)

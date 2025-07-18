@@ -3,6 +3,8 @@ using SesliDil.Data.Context;
 using SesliDil.Core.Interfaces;
 using SesliDil.Data.Repositories;
 using SesliDil.Core.Mappings;
+using SesliDil.Service.Interfaces;
+using SesliDil.Service.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,9 @@ builder.Services.AddDbContext<SesliDilDbContext>(options =>
 
 // Repository (Generic)
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+// Service (Generic)
+builder.Services.AddScoped(typeof(IService<>), typeof(Service<>));
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
@@ -32,9 +37,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
