@@ -63,7 +63,22 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.UploadDate).IsRequired();
                 entity.HasOne(e=>e.Conversation).WithMany(u=>u.Files).HasForeignKey(e=>e.ThreadId);
             });
-
+            modelBuilder.Entity<Conversation>(entity =>
+            {
+                entity.ToTable("Conversation");
+                entity.HasKey(e => e.ThreadId);
+                entity.Property(e => e.Title).HasMaxLength(200);
+                entity.Property(e => e.Message).HasMaxLength(4000);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.LastUpdated).IsRequired();
+            });
+            modelBuilder.Entity<AIAgent>(entity =>
+            {
+                entity.ToTable("AIAgent");
+                entity.HasKey(e => e.AgentId);
+                entity.Property(e => e.AgentName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.AgentPrompt).HasMaxLength(1000);
+            });
         }
     }
 }
