@@ -16,7 +16,7 @@ namespace SesliDil.Core.Entities
         public DateTime RegistrationDate { get; set; }
         public int Streak { get; set; }
 
-        public ICollection<Progress> Progress {  get; set; }
+        public ICollection<Progress> Progresses {  get; set; }
 
     }
 }
