@@ -8,13 +8,13 @@ namespace SesliDil.Core.Entities
 {
     public class Message
     {
-        public int MessageId { get; set; }
-        public int ThreadId { get; set; }
-        public string Role { get; set; }
+        public string MessageId { get; set; } // UUID
+        public string ConversationId { get; set; } // UUID, foreign key to Conversation
+        public string Role { get; set; } // ENUM: user, ai
         public string Content { get; set; }
+        public string AudioUrl { get; set; }
+        public string SpeakerType { get; set; } // ENUM: user, ai
         public DateTime CreatedAt { get; set; }
-
-
 
         public Conversation Conversation { get; set; }
     }

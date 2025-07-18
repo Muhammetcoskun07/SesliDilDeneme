@@ -8,9 +8,12 @@ namespace SesliDil.Core.Entities
 {
     public class AIAgent
     {
-        public int AgentId { get; set; }
+        public string AgentId { get; set; } // VARCHAR(50)
         public string AgentName { get; set; }
         public string AgentPrompt { get; set; }
+        public string AgentDescription { get; set; }
+        public string AgentType { get; set; } // ENUM: conversation, travel, business, grammar
+        public bool IsActive { get; set; } // default true
 
     }
 }

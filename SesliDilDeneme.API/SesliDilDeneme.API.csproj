@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SesliDil.Data\SesliDil.Data.csproj" />
+    <ProjectReference Include="..\SesliDil.Service\SesliDil.Service.csproj" />
   </ItemGroup>
 
 </Project>
