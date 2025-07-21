@@ -8,10 +8,15 @@ namespace SesliDil.Core.DTOs
 {
     public class ProgressDto
     {
-        public int ProgressId { get; set; }
-        public int UserId { get; set; }
-        public string CurrentLevel { get; set; }
-        public string TargetLevel { get; set; }
-        public decimal ProgressRate { get; set; }
+        public string ProgressId { get; set; }
+        public string UserId { get; set; }
+        public int DailyConversationCount { get; set; }
+        public int TotalConversationTimeMinutes { get; set; }
+        public int CurrentStreakDays { get; set; }
+        public int LongestStreakDays { get; set; }
+        public string CurrentLevel { get; set; } // A1 - C2
+        public DateTime LastConversationDate { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
+
 }

@@ -1,4 +1,5 @@
-﻿using SesliDil.Core.Entities;
+﻿using SesliDil.Core.DTOs;
+using SesliDil.Core.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,9 +10,6 @@ namespace SesliDil.Service.Interfaces
 {
     public interface IUserService : IService<User>
     {
-        Task<IEnumerable<User>> GetByGenderAsync(string gender);
-        Task<IEnumerable<User>> GetByInterestAsync(string interest);
-        Task<IEnumerable<User>> GetRecentRegistrationsAsync(int days);
-        Task<int> GetAverageAgeAsync();
+        Task<User> GetUserByIdAsync(int id);
     }
 }

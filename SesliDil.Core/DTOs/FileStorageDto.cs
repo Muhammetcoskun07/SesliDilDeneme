@@ -8,11 +8,12 @@ namespace SesliDil.Core.DTOs
 {
     public class FileStorageDto
     {
-        public int FileId { get; set; }
-        public int UserId { get; set; }
-        public int ThreadId { get; set; }
+        public string FileId { get; set; }
+        public string UserId { get; set; }
+        public string ConversationId { get; set; }
         public string FileName { get; set; }
         public string FileURL { get; set; }
         public DateTime UploadDate { get; set; }
     }
+
 }

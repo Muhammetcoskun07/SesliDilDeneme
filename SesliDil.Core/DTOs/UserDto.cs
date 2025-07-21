@@ -8,11 +8,20 @@ namespace SesliDil.Core.DTOs
 {
     public class UserDto
     {
-        public int UserId { get; set; }
-        public string Language { get; set; }
-        public string Interests { get; set; }
-        public string Gender { get; set; }
-        public int Age { get; set; }
-        public DateTime RegistrationDate { get; set; }
+        public string UserId { get; set; }
+        public string SocialProvider { get; set; }
+        public string SocialId { get; set; }
+        public string Email { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string NativeLanguage { get; set; }
+        public string TargetLanguage { get; set; }
+        public string[] LearningGoals { get; set; }
+        public string ProficiencyLevel { get; set; }
+        public string AgeRange { get; set; }
+        public string[] Hobbies { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime LastLoginAt { get; set; }
     }
+
 }
