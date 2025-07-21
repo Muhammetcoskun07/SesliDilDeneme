@@ -22,13 +22,13 @@ namespace SesliDil.Service.Services
             _conversationRepository = conversationRepository;
             _mapper = mapper;
         }
-        public async Task<IEnumerable<Conversation>> GetByUserIdAsync(string userID)
+        public async Task<IEnumerable<ConversationDto>> GetByUserIdAsync(string userId)
         {
-            if (string.IsNullOrEmpty(userID)) throw new ArgumentException("Invalid User");
-            var conversations= await _conversationRepository.GetAllAsync();
-            return conversations.Where(c=>c.UserId == userID);
-        }
-        
+            if (string.IsNullOrEmpty(userId)) throw new ArgumentException("Invalid User");
+            var conversations = await _conversationRepository.GetAllAsync();
+            var userConversations = conversations.Where(c => c.UserId == userId);
+            return _mapper.Map<IEnumerable<ConversationDto>>(userConversations);
 
+        }
         }
 }
