@@ -3,10 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using AutoMapper;
+using SesliDil.Core.DTOs;
+using SesliDil.Core.Entities;
+using SesliDil.Core.Interfaces;
+using SesliDil.Service.Interfaces;
 
 namespace SesliDil.Service.Services
 {
-    public class AIAgentService : Service<AIAgent>, IAIAgentService
+    public class AIAgentService : Service<AIAgent>, IService<AIAgent>
     {
         private readonly IRepository<AIAgent> _agentRepository;
         private readonly IMapper _mapper;
