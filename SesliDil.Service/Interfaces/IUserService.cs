@@ -10,6 +10,6 @@ namespace SesliDil.Service.Interfaces
 {
     public interface IUserService : IService<User>
     {
-        Task<User> GetUserByIdAsync(int id);
+        Task<User> GetOrCreateBySocialAsync();
     }
 }
