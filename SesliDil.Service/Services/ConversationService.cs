@@ -22,26 +22,13 @@ namespace SesliDil.Service.Services
             _conversationRepository = conversationRepository;
             _mapper = mapper;
         }
-        public async Task<ConversationDto> GetConversationByIdAsync(int threadId)
+        public async Task<IEnumerable<Conversation>> GetByUserIdAsync(string userID)
         {
-            var conversation = await _conversationRepository.GetByIdAsync(threadId);
-            if (conversation == null) throw new Exception("Conversation Not Found");
-            return _mapper.Map<ConversationDto>(conversation);
+            if (string.IsNullOrEmpty(userID)) throw new ArgumentException("Invalid User");
+            var conversations= await _conversationRepository.GetAllAsync();
+            return conversations.Where(c=>c.UserId == userID);
         }
-        public async Task<ConversationDto> GetConversationByThreadIdAsync(int threadId)
-        {
-            if(threadId==null) throw new ArgumentException("Invalid threadId");
-            var conversation = await _conversationRepository.GetByIdAsync(threadId);
-             return _mapper.Map<ConversationDto>(conversation);
-        }
-        public async Task<ConversationDto> StartConversationAsync(string agentId, string language)
-        {
-            if (string.IsNullOrEmpty(agentId) || string.IsNullOrEmpty(language)) throw new ArgumentException("Invalid Agent or Language");
-            var conversation=new Conversation { ConversationId= Guid.NewGuid().ToString(), AgentId = agentId,
-                Language = language, Status = "active", StartedAt = DateTime.UtcNow };
-            await _conversationRepository.AddAsync(conversation);
-            return _mapper.Map<ConversationDto>(conversation);
-        }
+        
 
         }
 }
