@@ -1,4 +1,5 @@
-﻿using SesliDil.Core.Entities;
+﻿using AutoMapper;
+using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
 using SesliDil.Service.Interfaces;
 using System;
@@ -9,38 +10,43 @@ using System.Threading.Tasks;
 
 namespace SesliDil.Service.Services
 {
-    public class UserService : Service<User>, IUserService
+    public class UserService : Service<User>
     {
-        private readonly IRepository<User> _userRepository;
+        //private readonly IRepository<User> _userRepository;
+        //private readonly IMapper _mapper;
 
-        public UserService(IRepository<User> repository) : base(repository)
+        public UserService(IRepository<User> repository, IMapper mapper) : base(repository, mapper)
         {
-            _userRepository = repository;
+        }
+        public async Task<User> GetOrCreateBySocialAsync(string socialProvider, string socialId, string email, string firstName, string lastName)
+        {
+            if(string.IsNullOrEmpty(socialProvider) || string.IsNullOrEmpty(socialId)|| string.IsNullOrEmpty(email)||
+                string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName))
+            {
+                throw new ArgumentNullException("Invalid social authentication data");
+            }
+            var existingUser=(await GetAllAsync()).FirstOrDefault(u=>u.SocialProvider==socialProvider && u.SocialId==socialId);
+            if(existingUser!=null) return existingUser;
+            var newUser = new User
+            {
+                UserId = Guid.NewGuid().ToString(),
+                SocialProvider = socialProvider,
+                SocialId = socialId,
+                Email = email,
+                FirstName = firstName,
+                LastName = lastName,
+                NativeLanguage="en", //Default
+                TargetLanguage="en", //Default
+                ProficiencyLevel="A1",
+                AgeRange="18-24",
+                CreatedAt=DateTime.Now,
+                LastLoginAt=DateTime.Now
+            };
+            await CreateAsync(newUser);
+            return newUser;
+
         }
 
-        public async Task<IEnumerable<User>> GetByGenderAsync(string gender)
-        {
-            var users = await _userRepository.GetAllAsync();
-            return users.Where(u => u.Gender == gender);
-        }
 
-        public async Task<IEnumerable<User>> GetByInterestAsync(string interest)
-        {
-            var users = await _userRepository.GetAllAsync();
-            return users.Where(u => u.Interests.Contains(interest, StringComparison.OrdinalIgnoreCase));
-        }
-
-        public async Task<IEnumerable<User>> GetRecentRegistrationsAsync(int days)
-        {
-            var users = await _userRepository.GetAllAsync();
-            var targetDate = DateTime.UtcNow.AddDays(-days);
-            return users.Where(u => u.RegistrationDate >= targetDate);
-        }
-
-        public async Task<int> GetAverageAgeAsync()
-        {
-            var users = await _userRepository.GetAllAsync();
-            return (int)users.Average(u => u.Age);
-        }
     }
 }

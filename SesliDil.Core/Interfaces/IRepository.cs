@@ -9,7 +9,7 @@ namespace SesliDil.Core.Interfaces
     public interface IRepository<T> where T : class
     {
         Task<List<T>> GetAllAsync();
-        Task<TId> GetByIdAsync<TId>(TId id);
+        Task<T> GetByIdAsync<TId>(TId id);
         Task AddAsync(T entity);
         void Update(T entity);
         void Delete(T entity);

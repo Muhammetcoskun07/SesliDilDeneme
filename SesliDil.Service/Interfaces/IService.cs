@@ -8,10 +8,10 @@ namespace SesliDil.Service.Interfaces
 {
     public interface IService<T>  where T : class
     {
-        Task<T> GetByIdAsync(int id);
+        Task<T> GetByIdAsync<TId>(TId id);
         Task CreateAsync(T entity);
-        void Update(T entity);
-        void Delete(T entity);
+        Task UpdateAsync(T entity);
+        Task DeleteAsync(T entity);
         Task<IEnumerable<T>> GetAllAsync();
     }
 }

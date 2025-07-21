@@ -14,51 +14,40 @@ namespace SesliDil.Service.Services
     public class Service<T> : IService<T> where T : class
     {
         private readonly IRepository<T> _repository;
-        private IRepository<Conversation> conversationRepository;
-        private IMapper mapper;
-        private IRepository<User> repository;
+        private IMapper _mapper;
 
-        public Service(IRepository<T> repository, MappingProfile mapper)
+        public Service(IRepository<T> repository, IMapper mapper)
         {
             _repository = repository;
-            
+            _mapper=mapper;
         }
 
-        public Service(IRepository<Conversation> conversationRepository, IMapper mapper)
+        public virtual async Task<T> GetByIdAsync<TId>(TId id)
         {
-            this.conversationRepository = conversationRepository;
-            this.mapper = mapper;
+            if (id == null) throw new ArgumentNullException("Invalid id");
+            return await _repository.GetByIdAsync<TId>(id);
         }
-
-        public Service(IRepository<User> repository)
+        public virtual async Task CreateAsync(T entity)
         {
-            this.repository = repository;
+            if(entity == null) throw new ArgumentNullException(nameof(entity));
+            await _repository.AddAsync(entity);
+            await _repository.SaveChangesAsync();
         }
-
-        public async Task<T> GetByIdAsync(int id)
-        {
-            if(id==null) throw new ArgumentException("Not Found");
-            return await _repository.GetByIdAsync(id);
-        }
-        public async Task CreateAsync(T entity)
-        {
-            if (entity == null) throw new ArgumentNullException(nameof(entity));
-             await _repository.AddAsync(entity);
-        }
-        public void  Update(T entity)
+        public virtual async Task UpdateAsync(T entity)
         {
             if(entity == null) throw new ArgumentNullException(nameof(entity));
             _repository.Update(entity);
+            await _repository.SaveChangesAsync();
         }
-        public void  Delete(T entity)
+        public virtual async Task DeleteAsync(T entity)
         {
-             _repository.Delete(entity);
+            if (entity == null) throw new ArgumentNullException(nameof(entity));
+            _repository.Delete(entity);
+            await _repository.SaveChangesAsync();
         }
-        public async Task<IEnumerable<T>> GetAllAsync()
+        public virtual async Task<IEnumerable<T>> GetAllAsync()
         {
             return await _repository.GetAllAsync();
         }
-
-
     }
 }
