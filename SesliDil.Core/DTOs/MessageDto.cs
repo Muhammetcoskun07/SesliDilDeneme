@@ -8,10 +8,13 @@ namespace SesliDil.Core.DTOs
 {
     public class MessageDto
     {
-        public int MessageId { get; set; }
-        public int ThreadId { get; set; }
-        public string Role { get; set; }
+        public string MessageId { get; set; }
+        public string ConversationId { get; set; }
+        public string Role { get; set; } // user, ai
         public string Content { get; set; }
+        public string AudioUrl { get; set; }
+        public string SpeakerType { get; set; } // user, ai
         public DateTime CreatedAt { get; set; }
     }
+
 }
