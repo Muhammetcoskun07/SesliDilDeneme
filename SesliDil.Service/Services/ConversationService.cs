@@ -34,6 +34,14 @@ namespace SesliDil.Service.Services
             var conversation = await _conversationRepository.GetByIdAsync(threadId);
              return _mapper.Map<ConversationDto>(conversation);
         }
+        public async Task<ConversationDto> StartConversationAsync(string agentId, string language)
+        {
+            if (string.IsNullOrEmpty(agentId) || string.IsNullOrEmpty(language)) throw new ArgumentException("Invalid Agent or Language");
+            var conversation=new Conversation { ConversationId= Guid.NewGuid().ToString(), AgentId = agentId,
+                Language = language, Status = "active", StartedAt = DateTime.UtcNow };
+            await _conversationRepository.AddAsync(conversation);
+            return _mapper.Map<ConversationDto>(conversation);
+        }
 
         }
 }

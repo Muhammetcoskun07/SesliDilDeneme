@@ -8,15 +8,12 @@ namespace SesliDil.Core.Entities
 {
     public class FileStorage
     {
-        public int FileId { get; set; }
-        public int UserId { get; set; }
-        public int ThreadId { get; set; }
+        public string FileId { get; set; } // UUID
+        public string UserId { get; set; } // UUID, foreign key to User
+        public string ConversationId { get; set; } // UUID, foreign key to Conversation
         public string FileName { get; set; }
         public string FileURL { get; set; }
         public DateTime UploadDate { get; set; }
-
-
-
         public User User { get; set; }
         public Conversation Conversation { get; set; }
     }
