@@ -1,46 +1,52 @@
-﻿using SesliDil.Core.Entities;
+﻿using AutoMapper;
+using SesliDil.Core.DTOs;
+using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
 using SesliDil.Service.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SesliDil.Service.Services
 {
-    public class UserService : Service<User>, IUserService
+    public class UserService : Service<User>, IService<User>
     {
         private readonly IRepository<User> _userRepository;
+        private readonly IMapper _mapper;
 
-        public UserService(IRepository<User> repository) : base(repository)
+        public UserService(IRepository<User> userRepository, IMapper mapper)
+            : base(userRepository)
         {
-            _userRepository = repository;
+            _userRepository = userRepository;
+            _mapper = mapper;
         }
 
-        public async Task<IEnumerable<User>> GetByGenderAsync(string gender)
+        public async Task<User> GetUserByIdAsync(int id)
         {
-            var users = await _userRepository.GetAllAsync();
-            return users.Where(u => u.Gender == gender);
-        }
+            if (id <= 0) throw new ArgumentException("Invalid user ID");
 
-        public async Task<IEnumerable<User>> GetByInterestAsync(string interest)
-        {
-            var users = await _userRepository.GetAllAsync();
-            return users.Where(u => u.Interests.Contains(interest, StringComparison.OrdinalIgnoreCase));
-        }
+            var user = await _userRepository.GetByIdAsync(id);
+            if (user == null) throw new Exception("User not found");
 
-        public async Task<IEnumerable<User>> GetRecentRegistrationsAsync(int days)
-        {
-            var users = await _userRepository.GetAllAsync();
-            var targetDate = DateTime.UtcNow.AddDays(-days);
-            return users.Where(u => u.RegistrationDate >= targetDate);
-        }
-
-        public async Task<int> GetAverageAgeAsync()
-        {
-            var users = await _userRepository.GetAllAsync();
-            return (int)users.Average(u => u.Age);
+            return user;
         }
     }
+    //public class UserService : Service<User>, IUserService
+    //{
+    //    private readonly IRepository<User> _userRepository;
+    //    private readonly IMapper _mapper;
+
+    //    public UserService(IRepository<User> userRepository, IMapper mapper)
+    //        : base(userRepository, mapper)
+    //    {
+    //        _userRepository = userRepository;
+    //        _mapper = mapper;
+    //    }
+
+    //    public async Task<UserDto> GetUserByIdAsync(int userId)
+    //    {
+    //        var user = await _userRepository.GetByIdAsync(userId);
+    //        if (user == null)
+    //            throw new Exception("User not found");
+
+    //        return _mapper.Map<UserDto>(user);
+    //    }
+    //}
 }
