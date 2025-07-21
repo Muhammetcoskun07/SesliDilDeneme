@@ -54,5 +54,15 @@ namespace SesliDil.Service.Services
             return _mapper.Map<FileStorageDto>(fileStorage);
         }
 
+        public async Task<FileStorageDto> CreateFileAsync(FileStorageDto dto)
+        {
+            var entity = _mapper.Map<FileStorage>(dto);
+            entity.FileId = Guid.NewGuid().ToString(); // ID'yi biz atıyoruz
+            entity.UploadDate = DateTime.UtcNow;
+
+            await CreateAsync(entity);
+            return _mapper.Map<FileStorageDto>(entity);
+        }
+
     }
 }
