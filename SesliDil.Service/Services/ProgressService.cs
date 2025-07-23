@@ -27,17 +27,56 @@ namespace SesliDil.Service.Services
             var userProgresses=progresses.Where(p => p.UserId == userId);
             return _mapper.Map<IEnumerable<ProgressDto>>(userProgresses);
         }
-        public async Task<ProgressDto> UpdateProgressAsync(string progressId, int dailyConversationCount, 
-            int totalConversationTimeMinutes, string currentLevel)
+        public async Task<ProgressDto> UpdateProgressAsync(string userId, int conversationTimeMinutes)
         {
-            if (string.IsNullOrEmpty(progressId)) throw new ArgumentException("Invalid progressId", nameof(progressId));
-            var progress = await _progressRepository.GetByIdAsync<string>(progressId);
-            progress.DailyConversationCount = dailyConversationCount;
-            progress.TotalConversationTimeMinutes = totalConversationTimeMinutes;
-            progress.CurrentLevel = currentLevel;
+            if (string.IsNullOrWhiteSpace(userId) || conversationTimeMinutes < 0)
+                throw new ArgumentException("Invalid input");
+
+            // userId ile Progress nesnesini manuel sorgulama
+            var allProgress = await _progressRepository.GetAllAsync();
+            var progress = allProgress.FirstOrDefault(p => p.UserId == userId)
+                ?? new Progress
+                {
+                    ProgressId = Guid.NewGuid().ToString(),
+                    UserId = userId,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+            progress.DailyConversationCount += 1;
+            progress.TotalConversationTimeMinutes += conversationTimeMinutes;
+
+            var previousDate = progress.LastConversationDate.Date;
+            var currentDate = DateTime.UtcNow.Date;
+
+            if (previousDate == currentDate.AddDays(-1))
+                progress.CurrentStreakDays += 1;
+            else if (previousDate < currentDate.AddDays(-1))
+                progress.CurrentStreakDays = 1;
+            else if (previousDate != currentDate)
+                progress.CurrentStreakDays = 1;
+
+            progress.LastConversationDate = DateTime.UtcNow;
             progress.UpdatedAt = DateTime.UtcNow;
-            await UpdateAsync(progress);
+
+            if (progress.CurrentStreakDays > progress.LongestStreakDays)
+                progress.LongestStreakDays = progress.CurrentStreakDays;
+
+            progress.CurrentLevel = DetermineLevel(progress.TotalConversationTimeMinutes);
+
+            _progressRepository.Update(progress);
+            await _progressRepository.SaveChangesAsync();
+
             return _mapper.Map<ProgressDto>(progress);
+        }
+
+        private string DetermineLevel(int totalMinutes)
+        {
+            if (totalMinutes < 60) return "A1";      // 1 saat
+            if (totalMinutes < 120) return "A2";     // 2 saat
+            if (totalMinutes < 240) return "B1";     // 4 saat
+            if (totalMinutes < 480) return "B2";     // 8 saat
+            if (totalMinutes < 960) return "C1";     // 16 saat
+            return "C2";                             // 16+ saat
         }
     }
 }
