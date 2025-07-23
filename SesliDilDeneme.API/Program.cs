@@ -11,6 +11,7 @@ using SesliDil.Core.Entities;
 using SesliDil.Service.Interfaces;
 using FluentValidation.AspNetCore;
 using SesliDilDeneme.API.Validators;
+using SesliDilDeneme.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,9 @@ builder.Services.AddDbContext<SesliDilDbContext>(options =>
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IService<>), typeof(Service<>));
+
+builder.Services.AddSignalR();
+
 
 
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<UserValidator>());
@@ -61,6 +65,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+app.UseRouting();
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapHub<ChatHub>("/chatHub");
+});
 
 if (app.Environment.IsDevelopment())
 {
