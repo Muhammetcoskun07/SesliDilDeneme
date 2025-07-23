@@ -12,6 +12,7 @@ namespace SesliDil.Core.DTOs
         public string ConversationId { get; set; }
         public string Role { get; set; } // user, ai
         public string Content { get; set; }
+        public string TranslatedContent { get; set; }
         public string AudioUrl { get; set; }
         public string SpeakerType { get; set; } // user, ai
         public DateTime CreatedAt { get; set; }
