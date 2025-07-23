@@ -12,6 +12,7 @@ namespace SesliDil.Core.Entities
         public string ConversationId { get; set; } // UUID, foreign key to Conversation
         public string Role { get; set; } // ENUM: user, ai
         public string Content { get; set; }
+        public string TranslatedContent { get; set; }
         public string AudioUrl { get; set; }
         public string SpeakerType { get; set; } // ENUM: user, ai
         public DateTime CreatedAt { get; set; }
