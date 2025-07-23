@@ -61,6 +61,13 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new { Token = token, UserId = user.UserId });
         }
 
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            // Eğer ileride token blacklist yapacaksan burada Redis gibi sisteme token ekleyebilirsin
+            return Ok(new { message = "Logout successful." });
+        }
+
         private async Task<User> HandleGoogleLogin(string idToken)
         {
             var handler = new JwtSecurityTokenHandler();
