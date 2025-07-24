@@ -16,6 +16,7 @@ namespace SesliDil.Core.DTOs
         public string AudioUrl { get; set; }
         public string SpeakerType { get; set; } // user, ai
         public DateTime CreatedAt { get; set; }
+        public List<string> GrammarErrors { get; set; }
     }
 
 }

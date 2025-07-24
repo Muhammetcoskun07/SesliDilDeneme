@@ -25,6 +25,7 @@ namespace SesliDilDeneme.API.Hubs
                 await Clients.Caller.SendAsync("ReceiveError", result.Errors.Select(e => e.ErrorMessage));
                 return;
             }
+            message.GrammarErrors = new List<string>();
 
             // Ses dosyası varsa, texte çevir ve çevir
             if (!string.IsNullOrEmpty(message.AudioUrl))
@@ -32,6 +33,7 @@ namespace SesliDilDeneme.API.Hubs
                 message.Content = await _messageService.ConvertSpeechToTextAsync(message.AudioUrl);
                 var targetLanguage = "Spanish"; // Mock: UserDto’dan alınabilir
                 message.TranslatedContent = await _messageService.TranslateAsync(message.Content, targetLanguage, agentId);
+                message.GrammarErrors = await _messageService.CheckGrammarAsync(message.Content);
             }
 
             // Mesajı tüm istemcilere gönder
