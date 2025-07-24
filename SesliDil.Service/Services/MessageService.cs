@@ -119,6 +119,29 @@ namespace SesliDil.Service.Services
             using var client = new HttpClient();
             return await client.GetByteArrayAsync(audioUrl);
         }
+        public async Task<List<string>> CheckGrammarAsync(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return new List<string>();
+
+            var prompt = "Identify and list all grammar errors in the following text, return only the errors as a list: {0}";
+            var fullPrompt = string.Format(prompt, text);
+            var requestBody = new
+            {
+                model = "gpt-3.5-turbo",
+                messages = new[] { new { role = "user", content = fullPrompt } },
+                temperature = 0.2 // 0.0-1.0 arasında 0a yaklaştıkç kesinlik artar
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<TranslationResponse>();
+            var errorsText = result.Choices[0].Message.Content;
+
+            // OpenAI'dan gelen metni listeye çevir
+            var errors = errorsText.Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(e => e.Trim()).ToList();
+            return errors.Any() ? errors : new List<string>();
+        }
     }
 
     public class TranscriptionResponse
