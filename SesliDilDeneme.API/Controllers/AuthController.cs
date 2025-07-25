@@ -73,14 +73,18 @@ namespace SesliDilDeneme.API.Controllers
             var handler = new JwtSecurityTokenHandler();
             var token = handler.ReadJwtToken(idToken);
 
-            // Basit doğrulama (prod ortamda issuer/audience kontrolü zorunlu)
-            if (token.Payload.Iss != "https://accounts.google.com" || !token.Payload.Aud.Contains(_configuration["Google:ClientId"]))
+            if (token.Payload.Iss != "https://accounts.google.com" ||
+                !token.Payload.Aud.Contains(_configuration["Google:ClientId"]))
+            {
                 return null;
+            }
 
             var socialId = token.Payload.Sub;
+            var email = token.Payload.ContainsKey("email") ? token.Payload["email"]?.ToString() : null;
+            var firstName = token.Payload.ContainsKey("given_name") ? token.Payload["given_name"]?.ToString() : "GoogleUser";
+            var lastName = token.Payload.ContainsKey("family_name") ? token.Payload["family_name"]?.ToString() : "LastName";
 
-            var user = await _userService.GetOrCreateBySocialAsync("google", socialId, null, "GoogleUser", "LastName");
-            return user;
+            return await _userService.GetOrCreateBySocialAsync("google", socialId, email, firstName, lastName);
         }
 
         private async Task<User> HandleAppleLogin(string idToken)
