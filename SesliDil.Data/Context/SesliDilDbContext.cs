@@ -36,10 +36,12 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
                 entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.NativeLanguage).IsRequired().HasMaxLength(10);
-                entity.Property(e => e.TargetLanguage).IsRequired().HasMaxLength(10);
-                entity.Property(e => e.ProficiencyLevel).IsRequired().HasMaxLength(2);
-                entity.Property(e => e.AgeRange).IsRequired().HasMaxLength(5);
+                entity.Property(e => e.NativeLanguage).HasMaxLength(10); // Nullable
+                entity.Property(e => e.TargetLanguage).HasMaxLength(10); // Nullable
+                entity.Property(e => e.ProficiencyLevel).HasMaxLength(2); // Nullable
+                entity.Property(e => e.AgeRange).HasMaxLength(5); // Nullable
+                entity.Property(e => e.LearningGoals).HasColumnType("jsonb").HasDefaultValue(new List<string>()).IsRequired(false);
+                entity.Property(e => e.Hobbies).HasColumnType("jsonb").HasDefaultValue(new List<string>()).IsRequired(false);
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.LastLoginAt).IsRequired();
             });
