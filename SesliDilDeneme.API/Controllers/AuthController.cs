@@ -1,10 +1,12 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
+using SesliDil.Service.Interfaces;
 using SesliDil.Service.Services;
 
 namespace SesliDilDeneme.API.Controllers
@@ -68,26 +70,37 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new { message = "Logout successful." });
         }
 
-        private async Task<User> HandleGoogleLogin(string idToken)
+       
+
+
+
+private async Task<User> HandleGoogleLogin(string idToken)
+    {
+        try
         {
-            var handler = new JwtSecurityTokenHandler();
-            var token = handler.ReadJwtToken(idToken);
-
-            if (token.Payload.Iss != "https://accounts.google.com" ||
-                !token.Payload.Aud.Contains(_configuration["Google:ClientId"]))
+            var settings = new GoogleJsonWebSignature.ValidationSettings
             {
-                return null;
-            }
+                Audience = new[] { _configuration["Google:ClientId"] }
+            };
+            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
 
-            var socialId = token.Payload.Sub;
-            var email = token.Payload.ContainsKey("email") ? token.Payload["email"]?.ToString() : null;
-            var firstName = token.Payload.ContainsKey("given_name") ? token.Payload["given_name"]?.ToString() : "GoogleUser";
-            var lastName = token.Payload.ContainsKey("family_name") ? token.Payload["family_name"]?.ToString() : "LastName";
+            var socialId = payload.Subject;
+            var email = payload.Email;
+            var firstName = payload.GivenName;
+            var lastName = payload.FamilyName;
 
-            return await _userService.GetOrCreateBySocialAsync("google", socialId, email, firstName, lastName);
+            var user = await _userService.GetOrCreateBySocialAsync(
+                "google", socialId, email, firstName ?? "GoogleUser", lastName ?? "LastName"
+            );
+            return user;
         }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
 
-        private async Task<User> HandleAppleLogin(string idToken)
+    private async Task<User> HandleAppleLogin(string idToken)
         {
             try
             {
