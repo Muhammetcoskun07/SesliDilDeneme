@@ -4,6 +4,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.12.35506.116
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SesliDilDeneme.API", "SesliDilDeneme.API.csproj", "{EC95898C-7F07-43FB-AE0C-5D93F43E6A88}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7BA67C25-15F8-4841-901C-CC6B567B65F0} = {7BA67C25-15F8-4841-901C-CC6B567B65F0}
+		{7DF19E25-6446-4C3A-A044-4350B51FB98F} = {7DF19E25-6446-4C3A-A044-4350B51FB98F}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SesliDil.Core", "..\SesliDil.Core\SesliDil.Core.csproj", "{7DF19E25-6446-4C3A-A044-4350B51FB98F}"
 EndProject

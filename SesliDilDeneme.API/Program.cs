@@ -12,6 +12,7 @@ using SesliDil.Service.Interfaces;
 using FluentValidation.AspNetCore;
 using SesliDilDeneme.API.Validators;
 using SesliDilDeneme.API.Hubs;
+using AutoMapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +24,7 @@ builder.Services.AddScoped(typeof(IService<>), typeof(Service<>));
 
 builder.Services.AddSignalR();
 
-
+builder.Services.AddHttpClient();
 
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<UserValidator>());
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<ProgressValidator>());
