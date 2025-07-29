@@ -100,28 +100,60 @@ private async Task<User> HandleGoogleLogin(string idToken)
         }
     }
 
-    private async Task<User> HandleAppleLogin(string idToken)
+        private async Task<User> HandleAppleLogin(string idToken)
         {
             try
             {
                 var handler = new JwtSecurityTokenHandler();
-                var jwtToken = handler.ReadJwtToken(idToken);
 
-                if (jwtToken.Payload.Iss != "https://appleid.apple.com" ||
-                    !jwtToken.Payload.Aud.Contains(_configuration["Apple:ClientId"]))
+                // 1. Apple public keys endpoint'inden public key'leri al
+                var appleKeysUrl = "https://appleid.apple.com/auth/keys";
+                using var httpClient = new HttpClient();
+                var json = await httpClient.GetStringAsync(appleKeysUrl);
+                var keys = new JsonWebKeySet(json).Keys;
+
+                // 2. Token’ı doğrulamak için ayarları hazırla
+                var validationParameters = new TokenValidationParameters
                 {
-                    return null;
-                }
+                    ValidateIssuer = true,
+                    ValidIssuer = "https://appleid.apple.com",
 
-                var socialId = jwtToken.Payload.Sub;
+                    ValidateAudience = true,
+                    ValidAudience = _configuration["Apple:ClientId"],
+
+                    ValidateLifetime = true,
+                    RequireExpirationTime = true,
+
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKeys = keys
+                };
+
+                // 3. Token'ı doğrula
+                var principal = handler.ValidateToken(idToken, validationParameters, out var validatedToken);
+
+                var jwtToken = (JwtSecurityToken)validatedToken;
+                var socialId = jwtToken.Subject;
+
                 if (string.IsNullOrEmpty(socialId))
                     return null;
 
-                var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, null, "AppleUser", "LastName");
+                // Apple id_token bazı durumlarda e-mail sağlamaz (ilk login harici)
+                var email = principal.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+
+                var user = await _userService.GetOrCreateBySocialAsync(
+                    "apple", socialId, email, "AppleUser", "LastName"
+                );
+
                 return user;
             }
-            catch
+            catch (SecurityTokenException ex)
             {
+                Console.WriteLine("Token doğrulama hatası: " + ex.Message);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Genel hata: " + ex.Message);
                 return null;
             }
         }
