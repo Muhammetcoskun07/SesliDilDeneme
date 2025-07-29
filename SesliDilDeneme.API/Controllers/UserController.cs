@@ -21,6 +21,7 @@ namespace SesliDilDeneme.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
         {
+            //deneme
             var users = await _userService.GetAllAsync();
             return Ok(users);
         }
