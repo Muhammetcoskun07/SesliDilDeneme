@@ -66,13 +66,9 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new { message = "Logout successful." });
         }
 
-       
 
-
-
-
-    
-        private async Task<User> HandleAppleLogin(string idToken)
+        [HttpPost("apple-login")]
+        public async Task<IActionResult> AppleLogin([FromBody] AppleLoginRequest request)
         {
             try
             {
@@ -101,13 +97,13 @@ namespace SesliDilDeneme.API.Controllers
                 };
 
                 // 3. Token'ı doğrula
-                var principal = handler.ValidateToken(idToken, validationParameters, out var validatedToken);
+                var principal = handler.ValidateToken(request.IdToken, validationParameters, out var validatedToken);
 
                 var jwtToken = (JwtSecurityToken)validatedToken;
                 var socialId = jwtToken.Subject;
 
                 if (string.IsNullOrEmpty(socialId))
-                    return null;
+                    return Unauthorized("Apple ID token is invalid");
 
                 // Apple id_token bazı durumlarda e-mail sağlamaz (ilk login harici)
                 var email = principal.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
@@ -116,20 +112,31 @@ namespace SesliDilDeneme.API.Controllers
                     "apple", socialId, email, "AppleUser", "LastName"
                 );
 
-                return user;
+                if (user == null)
+                    return Unauthorized("User creation failed");
+
+                // Session oluştur
+                await _sessionService.CreateAsync(new Session
+                {
+                    SessionId = Guid.NewGuid().ToString(),
+                    UserId = user.UserId,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                // JWT üret
+                var jwt = GenerateJwtToken(user);
+
+                return Ok(new { Token = jwt, UserId = user.UserId });
             }
             catch (SecurityTokenException ex)
             {
-                Console.WriteLine("Token doğrulama hatası: " + ex.Message);
-                return null;
+                return BadRequest(new { message = "Apple token validation failed", error = ex.Message });
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Genel hata: " + ex.Message);
-                return null;
+                return BadRequest(new { message = "An error occurred during Apple login", error = ex.Message });
             }
         }
-
         private string GenerateJwtToken(User user)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
