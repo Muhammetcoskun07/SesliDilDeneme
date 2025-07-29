@@ -66,6 +66,70 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new { message = "Logout successful." });
         }
 
+       
+
+
+
+
+    
+        private async Task<User> HandleAppleLogin(string idToken)
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+
+                // 1. Apple public keys endpoint'inden public key'leri al
+                var appleKeysUrl = "https://appleid.apple.com/auth/keys";
+                using var httpClient = new HttpClient();
+                var json = await httpClient.GetStringAsync(appleKeysUrl);
+                var keys = new JsonWebKeySet(json).Keys;
+
+                // 2. Token’ı doğrulamak için ayarları hazırla
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = "https://appleid.apple.com",
+
+                    ValidateAudience = true,
+                    ValidAudience = _configuration["Apple:ClientId"],
+
+                    ValidateLifetime = true,
+                    RequireExpirationTime = true,
+
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKeys = keys
+                };
+
+                // 3. Token'ı doğrula
+                var principal = handler.ValidateToken(idToken, validationParameters, out var validatedToken);
+
+                var jwtToken = (JwtSecurityToken)validatedToken;
+                var socialId = jwtToken.Subject;
+
+                if (string.IsNullOrEmpty(socialId))
+                    return null;
+
+                // Apple id_token bazı durumlarda e-mail sağlamaz (ilk login harici)
+                var email = principal.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+
+                var user = await _userService.GetOrCreateBySocialAsync(
+                    "apple", socialId, email, "AppleUser", "LastName"
+                );
+
+                return user;
+            }
+            catch (SecurityTokenException ex)
+            {
+                Console.WriteLine("Token doğrulama hatası: " + ex.Message);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Genel hata: " + ex.Message);
+                return null;
+            }
+        }
+
         private string GenerateJwtToken(User user)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
