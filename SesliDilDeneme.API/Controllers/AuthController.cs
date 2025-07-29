@@ -1,13 +1,12 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Google.Apis.Auth;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
-using SesliDil.Service.Interfaces;
 using SesliDil.Service.Services;
+using SesliDil.Core.DTOs;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -26,104 +25,45 @@ namespace SesliDilDeneme.API.Controllers
             _sessionService = sessionService;
         }
 
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] SocialLoginDto socialLoginDto)
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
         {
-            if (socialLoginDto == null || string.IsNullOrEmpty(socialLoginDto.Provider) || string.IsNullOrEmpty(socialLoginDto.IdToken))
-                return BadRequest("Invalid social login data");
-
-            User user = null;
-
-            if (socialLoginDto.Provider.ToLower() == "apple")
+            try
             {
-                user = await HandleAppleLogin(socialLoginDto.IdToken);
+                // 1. Google ID token doğrulama
+                var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { _configuration["Authentication:Google:ClientId"] }
+                });
+
+                // 2. User'ı DB'de bul / oluştur
+                var user = await _userService.GetOrCreateBySocialAsync("google", payload.Subject, payload.Email, payload.GivenName ?? "GoogleUser", payload.FamilyName ?? "LastName");
+
+                if (user == null) return Unauthorized("User creation failed");
+
+                // 3. Session oluştur
+                await _sessionService.CreateAsync(new Session
+                {
+                    SessionId = Guid.NewGuid().ToString(),
+                    UserId = user.UserId,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                // 4. JWT üret
+                var jwtToken = GenerateJwtToken(user);
+
+                return Ok(new { Token = jwtToken, UserId = user.UserId });
             }
-            else if (socialLoginDto.Provider.ToLower() == "google")
+            catch (Exception ex)
             {
-                user = await HandleGoogleLogin(socialLoginDto.IdToken);
+                return BadRequest(new { message = "Google token validation failed", error = ex.Message });
             }
-            else
-            {
-                return BadRequest("Unsupported provider");
-            }
-
-            if (user == null) return Unauthorized("Invalid token or user");
-
-            // ✅ Session kaydı oluştur
-            await _sessionService.CreateAsync(new Session
-            {
-                SessionId = Guid.NewGuid().ToString(),
-                UserId = user.UserId,
-                CreatedAt = DateTime.UtcNow
-            });
-
-            // ✅ JWT Token üret
-            var token = GenerateJwtToken(user);
-
-            return Ok(new { Token = token, UserId = user.UserId });
         }
 
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            // Eğer ileride token blacklist yapacaksan burada Redis gibi sisteme token ekleyebilirsin
             return Ok(new { message = "Logout successful." });
-        }
-
-       
-
-
-
-private async Task<User> HandleGoogleLogin(string idToken)
-    {
-        try
-        {
-            var settings = new GoogleJsonWebSignature.ValidationSettings
-            {
-                Audience = new[] { _configuration["Google:ClientId"] }
-            };
-            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
-
-            var socialId = payload.Subject;
-            var email = payload.Email;
-            var firstName = payload.GivenName;
-            var lastName = payload.FamilyName;
-
-            var user = await _userService.GetOrCreateBySocialAsync(
-                "google", socialId, email, firstName ?? "GoogleUser", lastName ?? "LastName"
-            );
-            return user;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    private async Task<User> HandleAppleLogin(string idToken)
-        {
-            try
-            {
-                var handler = new JwtSecurityTokenHandler();
-                var jwtToken = handler.ReadJwtToken(idToken);
-
-                if (jwtToken.Payload.Iss != "https://appleid.apple.com" ||
-                    !jwtToken.Payload.Aud.Contains(_configuration["Apple:ClientId"]))
-                {
-                    return null;
-                }
-
-                var socialId = jwtToken.Payload.Sub;
-                if (string.IsNullOrEmpty(socialId))
-                    return null;
-
-                var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, null, "AppleUser", "LastName");
-                return user;
-            }
-            catch
-            {
-                return null;
-            }
         }
 
         private string GenerateJwtToken(User user)
