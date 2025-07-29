@@ -70,57 +70,8 @@ namespace SesliDilDeneme.API.Controllers
 
 
 
-private async Task<User> HandleGoogleLogin(string idToken)
-    {
-        try
-        {
-            var settings = new GoogleJsonWebSignature.ValidationSettings
-            {
-                Audience = new[] { _configuration["Google:ClientId"] }
-            };
-            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
 
-            var socialId = payload.Subject;
-            var email = payload.Email;
-            var firstName = payload.GivenName;
-            var lastName = payload.FamilyName;
-
-            var user = await _userService.GetOrCreateBySocialAsync(
-                "google", socialId, email, firstName ?? "GoogleUser", lastName ?? "LastName"
-            );
-            return user;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    private async Task<User> HandleAppleLogin(string idToken)
-        {
-            try
-            {
-                var handler = new JwtSecurityTokenHandler();
-                var jwtToken = handler.ReadJwtToken(idToken);
-
-                if (jwtToken.Payload.Iss != "https://appleid.apple.com" ||
-                    !jwtToken.Payload.Aud.Contains(_configuration["Apple:ClientId"]))
-                {
-                    return null;
-                }
-
-                var socialId = jwtToken.Payload.Sub;
-                if (string.IsNullOrEmpty(socialId))
-                    return null;
-
-                var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, null, "AppleUser", "LastName");
-                return user;
-            }
-            catch
-            {
-                return null;
-            }
-        }
+    
         private async Task<User> HandleAppleLogin(string idToken)
         {
             try
