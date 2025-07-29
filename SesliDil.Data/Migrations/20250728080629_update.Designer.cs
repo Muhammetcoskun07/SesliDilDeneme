@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SesliDil.Data.Context;
@@ -12,9 +13,11 @@ using SesliDil.Data.Context;
 namespace SesliDil.Data.Migrations
 {
     [DbContext(typeof(SesliDilDbContext))]
-    partial class SesliDilDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250728080629_update")]
+    partial class update
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -286,10 +289,8 @@ namespace SesliDil.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<List<string>>("Hobbies")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValue(new List<string>());
+                    b.Property<string[]>("Hobbies")
+                        .HasColumnType("text[]");
 
                     b.Property<DateTime>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
@@ -299,10 +300,8 @@ namespace SesliDil.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<List<string>>("LearningGoals")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValue(new List<string>());
+                    b.Property<string[]>("LearningGoals")
+                        .HasColumnType("text[]");
 
                     b.Property<string>("NativeLanguage")
                         .IsRequired()
