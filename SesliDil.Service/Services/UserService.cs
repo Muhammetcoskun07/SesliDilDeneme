@@ -20,13 +20,13 @@ namespace SesliDil.Service.Services
         }
         public async Task<User> GetOrCreateBySocialAsync(string socialProvider, string socialId, string email, string firstName, string lastName)
         {
-            if(string.IsNullOrEmpty(socialProvider) || string.IsNullOrEmpty(socialId)|| string.IsNullOrEmpty(email)||
+            if (string.IsNullOrEmpty(socialProvider) || string.IsNullOrEmpty(socialId) || string.IsNullOrEmpty(email) ||
                 string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName))
             {
                 throw new ArgumentNullException("Invalid social authentication data");
             }
-            var existingUser=(await GetAllAsync()).FirstOrDefault(u=>u.SocialProvider==socialProvider && u.SocialId==socialId);
-            if(existingUser!=null) return existingUser;
+            var existingUser = (await GetAllAsync()).FirstOrDefault(u => u.SocialProvider == socialProvider && u.SocialId == socialId);
+            if (existingUser != null) return existingUser;
             var newUser = new User
             {
                 UserId = Guid.NewGuid().ToString(),
@@ -35,15 +35,23 @@ namespace SesliDil.Service.Services
                 Email = email,
                 FirstName = firstName,
                 LastName = lastName,
-                NativeLanguage="en", //Default
-                TargetLanguage="en", //Default
-                ProficiencyLevel="A1",
-                AgeRange="18-24",
-                CreatedAt=DateTime.Now,
+                NativeLanguage = null, //  kullanıcı tamamlayacak
+                TargetLanguage = null, 
+                ProficiencyLevel = null,
+                AgeRange = null,
+                CreatedAt =DateTime.Now,
                 LastLoginAt=DateTime.Now
             };
-            await CreateAsync(newUser);
-            return newUser;
+            try
+            {
+                await CreateAsync(newUser);
+                return newUser;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"User creation failed: {ex.Message}");
+                throw; // Hata üst katmana iletilir
+            }
 
         }
 

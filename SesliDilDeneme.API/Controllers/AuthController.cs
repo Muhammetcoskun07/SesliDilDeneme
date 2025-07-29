@@ -66,6 +66,77 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new { message = "Logout successful." });
         }
 
+
+        [HttpPost("apple-login")]
+        public async Task<IActionResult> AppleLogin([FromBody] AppleLoginRequest request)
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+
+                // 1. Apple public keys endpoint'inden public key'leri al
+                var appleKeysUrl = "https://appleid.apple.com/auth/keys";
+                using var httpClient = new HttpClient();
+                var json = await httpClient.GetStringAsync(appleKeysUrl);
+                var keys = new JsonWebKeySet(json).Keys;
+
+                // 2. Token’ı doğrulamak için ayarları hazırla
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = "https://appleid.apple.com",
+
+                    ValidateAudience = true,
+                    ValidAudience = _configuration["Apple:ClientId"],
+
+                    ValidateLifetime = true,
+                    RequireExpirationTime = true,
+
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKeys = keys
+                };
+
+                // 3. Token'ı doğrula
+                var principal = handler.ValidateToken(request.IdToken, validationParameters, out var validatedToken);
+
+                var jwtToken = (JwtSecurityToken)validatedToken;
+                var socialId = jwtToken.Subject;
+
+                if (string.IsNullOrEmpty(socialId))
+                    return Unauthorized("Apple ID token is invalid");
+
+                // Apple id_token bazı durumlarda e-mail sağlamaz (ilk login harici)
+                var email = principal.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+
+                var user = await _userService.GetOrCreateBySocialAsync(
+                    "apple", socialId, email, "AppleUser", "LastName"
+                );
+
+                if (user == null)
+                    return Unauthorized("User creation failed");
+
+                // Session oluştur
+                await _sessionService.CreateAsync(new Session
+                {
+                    SessionId = Guid.NewGuid().ToString(),
+                    UserId = user.UserId,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                // JWT üret
+                var jwt = GenerateJwtToken(user);
+
+                return Ok(new { Token = jwt, UserId = user.UserId });
+            }
+            catch (SecurityTokenException ex)
+            {
+                return BadRequest(new { message = "Apple token validation failed", error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = "An error occurred during Apple login", error = ex.Message });
+            }
+        }
         private string GenerateJwtToken(User user)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
