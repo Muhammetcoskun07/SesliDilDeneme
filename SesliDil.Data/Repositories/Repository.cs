@@ -14,17 +14,17 @@ namespace SesliDil.Data.Repositories
         public Repository(SesliDilDbContext context)
         {
             _context = context;
-            _dbSet = _context.Set<T>();
-        }
-
-        public async Task<List<T>> GetAllAsync()
-        {
-            return await _dbSet.ToListAsync();
+            _dbSet = context.Set<T>();
         }
 
         public async Task<T> GetByIdAsync<TId>(TId id)
         {
             return await _dbSet.FindAsync(id);
+        }
+
+        public async Task<IEnumerable<T>> GetAllAsync()
+        {
+            return await _dbSet.ToListAsync();
         }
 
         public async Task AddAsync(T entity)
@@ -42,12 +42,15 @@ namespace SesliDil.Data.Repositories
             _dbSet.Remove(entity);
         }
 
-
-        public async Task SaveChangesAsync()
+        public async Task<int> SaveChangesAsync()
         {
-            await _context.SaveChangesAsync();
+            return await _context.SaveChangesAsync();
         }
 
-      
+        public IQueryable<T> Query()
+        {
+            return _dbSet.AsQueryable();
+        }
+
     }
 }

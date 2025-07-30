@@ -30,18 +30,19 @@ namespace SesliDilDeneme.API.Controllers
         {
             try
             {
-                // 1. Google ID token doğrulama
                 var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
                 {
-                    Audience = new[] { _configuration["Authentication:Google:ClientId"] }
+                    Audience = new[] { "748749859978-52lopvkm6bjkmla88hnjpknnd7ruuq2e.apps.googleusercontent.com" }
                 });
 
-                // 2. User'ı DB'de bul / oluştur
-                var user = await _userService.GetOrCreateBySocialAsync("google", payload.Subject, payload.Email, payload.GivenName ?? "GoogleUser", payload.FamilyName ?? "LastName");
+                // Zorunlu alanları güvenli hale getirmek için null-check
+                var email = string.IsNullOrEmpty(payload.Email) ? $"{payload.Subject}@google.local" : payload.Email;
+                var firstName = string.IsNullOrEmpty(payload.GivenName) ? "GoogleUser" : payload.GivenName;
+                var lastName = string.IsNullOrEmpty(payload.FamilyName) ? "LastName" : payload.FamilyName;
 
+                var user = await _userService.GetOrCreateBySocialAsync("google", payload.Subject, email, firstName, lastName);
                 if (user == null) return Unauthorized("User creation failed");
 
-                // 3. Session oluştur
                 await _sessionService.CreateAsync(new Session
                 {
                     SessionId = Guid.NewGuid().ToString(),
@@ -49,13 +50,13 @@ namespace SesliDilDeneme.API.Controllers
                     CreatedAt = DateTime.UtcNow
                 });
 
-                // 4. JWT üret
                 var jwtToken = GenerateJwtToken(user);
 
                 return Ok(new { Token = jwtToken, UserId = user.UserId });
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Google token validation error: " + ex.ToString());
                 return BadRequest(new { message = "Google token validation failed", error = ex.Message });
             }
         }

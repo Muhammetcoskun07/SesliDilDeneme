@@ -117,5 +117,15 @@ namespace SesliDilDeneme.API.Controllers
             await _userService.UpdateAsync(user);
             return Ok("Onboarding bilgileri kaydedildi.");
         }
+        [HttpDelete("{id}/full-delete")]
+        public async Task<IActionResult> DeleteUserCompletely(string id)
+        {
+            var result = await _userService.DeleteUserCompletelyAsync(id);
+            if (!result)
+                return NotFound(new { message = "User not found." });
+
+            return Ok(new { message = "User and all related data deleted successfully." });
+        }
+
     }
 }
