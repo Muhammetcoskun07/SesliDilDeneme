@@ -56,8 +56,10 @@ namespace SesliDilDeneme.API.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Google token validation error: " + ex.ToString());
                 return BadRequest(new { message = "Google token validation failed", error = ex.Message });
             }
+
         }
 
         [HttpPost("logout")]
