@@ -31,17 +31,15 @@ namespace SesliDil.Data.Context
                 entity.ToTable("User");
                 entity.HasKey(e => e.UserId);
                 entity.Property(e => e.UserId).ValueGeneratedOnAdd();
-                entity.Property(e => e.SocialProvider).IsRequired().HasMaxLength(10);
-                entity.Property(e => e.SocialId).IsRequired().HasMaxLength(255);
-                entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.SocialProvider).HasMaxLength(10);
+                entity.Property(e => e.SocialId).HasMaxLength(255);
+                entity.Property(e => e.Email).HasMaxLength(255);
                 entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.NativeLanguage).IsRequired().HasMaxLength(10);
-                entity.Property(e => e.TargetLanguage).IsRequired().HasMaxLength(10);
-                entity.Property(e => e.ProficiencyLevel).IsRequired().HasMaxLength(2);
-                entity.Property(e => e.AgeRange).IsRequired().HasMaxLength(5);
-                entity.Property(e => e.CreatedAt).IsRequired();
-                entity.Property(e => e.LastLoginAt).IsRequired();
+                entity.Property(e => e.NativeLanguage).HasMaxLength(10);
+                entity.Property(e => e.TargetLanguage).HasMaxLength(10);
+                entity.Property(e => e.ProficiencyLevel).HasMaxLength(2);
+                entity.Property(e => e.AgeRange).HasMaxLength(5);
             });
 
             modelBuilder.Entity<Progress>(entity =>
