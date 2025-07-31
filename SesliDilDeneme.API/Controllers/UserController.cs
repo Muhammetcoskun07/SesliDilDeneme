@@ -136,8 +136,8 @@ namespace SesliDilDeneme.API.Controllers
                 return BadRequest(new { message = "Database error while saving changes", error = innerException });
             }
         }
-
-        [Authorize]
+       
+            [Authorize]
         [HttpPost("onboarding")]
         public async Task<IActionResult> Onboarding([FromBody] OnboardingDto onboardingDto)
         {
@@ -156,6 +156,15 @@ namespace SesliDilDeneme.API.Controllers
 
             await _userService.UpdateAsync(user);
             return Ok("Onboarding bilgileri kaydedildi.");
+        }
+        [HttpDelete("{id}/full-delete")]
+        public async Task<IActionResult> DeleteUserCompletely(string id)
+        {
+            var result = await _userService.DeleteUserCompletelyAsync(id);
+            if (!result)
+                return NotFound(new { message = "User not found." });
+
+            return Ok(new { message = "User and all related data deleted successfully." });
         }
     }
 }
