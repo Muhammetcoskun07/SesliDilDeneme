@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -39,62 +41,101 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<ActionResult<UserDto>> Create([FromBody] UserDto userDto)
         {
             if (userDto == null) return BadRequest("Invalid User Data");
+            if (string.IsNullOrEmpty(userDto.SocialProvider)) return BadRequest("SocialProvider is required.");
+            if (string.IsNullOrEmpty(userDto.SocialId)) return BadRequest("SocialId is required.");
+            if (string.IsNullOrEmpty(userDto.FirstName)) return BadRequest("FirstName is required.");
+            if (string.IsNullOrEmpty(userDto.LastName)) return BadRequest("LastName is required.");
+            if (string.IsNullOrEmpty(userDto.NativeLanguage)) userDto.NativeLanguage = "en"; // Varsayılan dil
+            if (string.IsNullOrEmpty(userDto.TargetLanguage)) userDto.TargetLanguage = "en"; // Varsayılan hedef dil
 
             var user = new User
             {
-                UserId = Guid.NewGuid().ToString(),
-                SocialProvider = userDto.SocialProvider,
-                SocialId = userDto.SocialId,
-                Email = userDto.Email,
-                FirstName = userDto.FirstName,
-                LastName = userDto.LastName,
-                NativeLanguage = userDto.NativeLanguage,
-                TargetLanguage = userDto.TargetLanguage,
-                ProficiencyLevel = userDto.ProficiencyLevel,
-                AgeRange = userDto.AgeRange,
-                LastLoginAt = DateTime.UtcNow
+                SocialProvider = userDto.SocialProvider.Length > 10 ? userDto.SocialProvider.Substring(0, 10) : userDto.SocialProvider,
+                SocialId = userDto.SocialId.Length > 255 ? userDto.SocialId.Substring(0, 255) : userDto.SocialId,
+                Email = userDto.Email?.Length > 255 ? userDto.Email.Substring(0, 255) : userDto.Email,
+                FirstName = userDto.FirstName.Length > 100 ? userDto.FirstName.Substring(0, 100) : userDto.FirstName,
+                LastName = userDto.LastName.Length > 100 ? userDto.LastName.Substring(0, 100) : userDto.LastName,
+                NativeLanguage = userDto.NativeLanguage.Length > 10 ? userDto.NativeLanguage.Substring(0, 10) : userDto.NativeLanguage,
+                TargetLanguage = userDto.TargetLanguage.Length > 10 ? userDto.TargetLanguage.Substring(0, 10) : userDto.TargetLanguage,
+                ProficiencyLevel = userDto.ProficiencyLevel?.Length > 2 ? userDto.ProficiencyLevel.Substring(0, 2) : userDto.ProficiencyLevel,
+                AgeRange = userDto.AgeRange?.Length > 5 ? userDto.AgeRange.Substring(0, 5) : userDto.AgeRange,
+                CreatedAt = DateTime.UtcNow,
+                LastLoginAt = DateTime.UtcNow,
+                LearningGoals = JsonDocument.Parse("[]"),
+                Hobbies = JsonDocument.Parse("[]")
             };
 
-            await _userService.CreateAsync(user);
-            return CreatedAtAction(nameof(GetById), new { id = user.UserId }, user);
+            try
+            {
+                await _userService.CreateAsync(user);
+                return CreatedAtAction(nameof(GetById), new { id = user.UserId }, user);
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+            }
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] UserDto userDto)
         {
             if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (userDto == null) return BadRequest("Invalid User Data");
+            if (string.IsNullOrEmpty(userDto.NativeLanguage)) userDto.NativeLanguage = "en"; // Varsayılan dil
+            if (string.IsNullOrEmpty(userDto.TargetLanguage)) userDto.TargetLanguage = "en"; // Varsayılan hedef dil
+
             var user = await _userService.GetByIdAsync<string>(id);
             if (user == null) return NotFound();
 
-            user.SocialProvider = userDto.SocialProvider;
-            user.SocialId = userDto.SocialId;
-            user.Email = userDto.Email;
-            user.FirstName = userDto.FirstName;
-            user.LastName = userDto.LastName;
-            user.NativeLanguage = userDto.NativeLanguage;
-            user.TargetLanguage = userDto.TargetLanguage;
-            user.ProficiencyLevel = userDto.ProficiencyLevel;
-            user.AgeRange = userDto.AgeRange;
+            user.SocialProvider = userDto.SocialProvider?.Length > 10 ? userDto.SocialProvider.Substring(0, 10) : userDto.SocialProvider;
+            user.SocialId = userDto.SocialId?.Length > 255 ? userDto.SocialId.Substring(0, 255) : userDto.SocialId;
+            user.Email = userDto.Email?.Length > 255 ? userDto.Email.Substring(0, 255) : userDto.Email;
+            user.FirstName = userDto.FirstName?.Length > 100 ? userDto.FirstName.Substring(0, 100) : userDto.FirstName;
+            user.LastName = userDto.LastName?.Length > 100 ? userDto.LastName.Substring(0, 100) : userDto.LastName;
+            user.NativeLanguage = userDto.NativeLanguage.Length > 10 ? userDto.NativeLanguage.Substring(0, 10) : userDto.NativeLanguage;
+            user.TargetLanguage = userDto.TargetLanguage.Length > 10 ? userDto.TargetLanguage.Substring(0, 10) : userDto.TargetLanguage;
+            user.ProficiencyLevel = userDto.ProficiencyLevel?.Length > 2 ? userDto.ProficiencyLevel.Substring(0, 2) : userDto.ProficiencyLevel;
+            user.AgeRange = userDto.AgeRange?.Length > 5 ? userDto.AgeRange.Substring(0, 5) : userDto.AgeRange;
             user.LastLoginAt = DateTime.UtcNow;
 
-            await _userService.UpdateAsync(user);
-            return NoContent();
+            try
+            {
+                await _userService.UpdateAsync(user);
+                return NoContent();
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+            }
         }
-
         [HttpPost("social")]
         public async Task<ActionResult<UserDto>> CreateOrUpdateBySocial([FromBody] UserDto userDto)
         {
-            if (userDto == null || string.IsNullOrEmpty(userDto.SocialProvider)) return BadRequest("Invalid data");
+            if (userDto == null || string.IsNullOrEmpty(userDto.SocialProvider) || string.IsNullOrEmpty(userDto.SocialId))
+                return BadRequest("Invalid data: SocialProvider and SocialId are required.");
+            if (string.IsNullOrEmpty(userDto.FirstName)) userDto.FirstName = "User";
+            if (string.IsNullOrEmpty(userDto.LastName)) userDto.LastName = "LastName";
+            if (string.IsNullOrEmpty(userDto.NativeLanguage)) userDto.NativeLanguage = "en"; // Varsayılan dil
+            if (string.IsNullOrEmpty(userDto.TargetLanguage)) userDto.TargetLanguage = "en"; // Varsayılan hedef dil
 
-            var user = await _userService.GetOrCreateBySocialAsync(
-                userDto.SocialProvider,
-                userDto.SocialId,
-                userDto.Email,
-                userDto.FirstName,
-                userDto.LastName
-            );
-
-            return Ok(user);
+            try
+            {
+                var user = await _userService.GetOrCreateBySocialAsync(
+                    userDto.SocialProvider,
+                    userDto.SocialId,
+                    userDto.Email,
+                    userDto.FirstName,
+                    userDto.LastName
+                );
+                return Ok(user);
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+            }
         }
 
         [Authorize]
@@ -117,15 +158,5 @@ namespace SesliDilDeneme.API.Controllers
             await _userService.UpdateAsync(user);
             return Ok("Onboarding bilgileri kaydedildi.");
         }
-        [HttpDelete("{id}/full-delete")]
-        public async Task<IActionResult> DeleteUserCompletely(string id)
-        {
-            var result = await _userService.DeleteUserCompletelyAsync(id);
-            if (!result)
-                return NotFound(new { message = "User not found." });
-
-            return Ok(new { message = "User and all related data deleted successfully." });
-        }
-
     }
 }

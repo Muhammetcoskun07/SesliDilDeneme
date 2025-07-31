@@ -7,6 +7,8 @@ using Google.Apis.Auth;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
 using SesliDil.Core.DTOs;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -32,32 +34,43 @@ namespace SesliDilDeneme.API.Controllers
             {
                 var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
                 {
-                    Audience = new[] { "748749859978-52lopvkm6bjkmla88hnjpknnd7ruuq2e.apps.googleusercontent.com" }
+                    Audience = new[] { _configuration["Google:ClientId"] }
                 });
 
-                // Zorunlu alanları güvenli hale getirmek için null-check
-                var email = string.IsNullOrEmpty(payload.Email) ? $"{payload.Subject}@google.local" : payload.Email;
-                var firstName = string.IsNullOrEmpty(payload.GivenName) ? "GoogleUser" : payload.GivenName;
-                var lastName = string.IsNullOrEmpty(payload.FamilyName) ? "LastName" : payload.FamilyName;
+                if (string.IsNullOrEmpty(payload.Subject))
+                    return BadRequest("Invalid SocialId from Google token.");
 
-                var user = await _userService.GetOrCreateBySocialAsync("google", payload.Subject, email, firstName, lastName);
+                var socialId = payload.Subject.Length > 255 ? payload.Subject.Substring(0, 255) : payload.Subject;
+                var email = string.IsNullOrEmpty(payload.Email) ? $"{socialId}@google.local" : payload.Email.Length > 255 ? payload.Email.Substring(0, 255) : payload.Email;
+                var firstName = string.IsNullOrEmpty(payload.GivenName) ? "GoogleUser" : payload.GivenName.Length > 100 ? payload.GivenName.Substring(0, 100) : payload.GivenName;
+                var lastName = string.IsNullOrEmpty(payload.FamilyName) ? "GoogleLastName" : payload.FamilyName.Length > 100 ? payload.FamilyName.Substring(0, 100) : payload.FamilyName;
+
+                var user = await _userService.GetOrCreateBySocialAsync("google", socialId, email, firstName, lastName);
                 if (user == null) return Unauthorized("User creation failed");
 
                 await _sessionService.CreateAsync(new Session
                 {
-                    SessionId = Guid.NewGuid().ToString(),
                     UserId = user.UserId,
                     CreatedAt = DateTime.UtcNow
                 });
 
                 var jwtToken = GenerateJwtToken(user);
-
                 return Ok(new { Token = jwtToken, UserId = user.UserId });
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                Console.WriteLine($"DbUpdateException: {innerException}");
+                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+            }
+            catch (InvalidJwtException ex)
+            {
+                return BadRequest(new { message = "Google token validation failed", error = ex.Message });
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Google token validation error: " + ex.ToString());
-                return BadRequest(new { message = "Google token validation failed", error = ex.Message });
+                Console.WriteLine($"General error: {ex}");
+                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
             }
         }
 
@@ -96,7 +109,7 @@ namespace SesliDilDeneme.API.Controllers
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKeys = keys
                 };
-
+                
                 // 3. Token'ı doğrula
                 var principal = handler.ValidateToken(request.IdToken, validationParameters, out var validatedToken);
 
@@ -135,7 +148,11 @@ namespace SesliDilDeneme.API.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = "An error occurred during Apple login", error = ex.Message });
+                Console.WriteLine("User creation failed:");
+                Console.WriteLine(ex.ToString());
+                if (ex.InnerException != null)
+                    Console.WriteLine("Inner Exception: " + ex.InnerException.Message);
+                throw;
             }
         }
         private string GenerateJwtToken(User user)

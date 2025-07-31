@@ -30,16 +30,22 @@ namespace SesliDil.Data.Context
             {
                 entity.ToTable("User");
                 entity.HasKey(e => e.UserId);
-                entity.Property(e => e.UserId).ValueGeneratedOnAdd();
-                entity.Property(e => e.SocialProvider).HasMaxLength(10);
-                entity.Property(e => e.SocialId).HasMaxLength(255);
+                entity.Property(e => e.UserId).IsRequired().ValueGeneratedOnAdd();
+                entity.Property(e => e.SocialProvider).HasMaxLength(10).IsRequired();
+                entity.Property(e => e.SocialId).HasMaxLength(255).IsRequired();
                 entity.Property(e => e.Email).HasMaxLength(255);
-                entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.NativeLanguage).HasMaxLength(10);
+                entity.Property(e => e.FirstName).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.LastName).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.NativeLanguage).HasMaxLength(10); // Zorunlu
                 entity.Property(e => e.TargetLanguage).HasMaxLength(10);
                 entity.Property(e => e.ProficiencyLevel).HasMaxLength(2);
                 entity.Property(e => e.AgeRange).HasMaxLength(5);
+                entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.LastLoginAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.LearningGoals).HasColumnType("jsonb"); // PostgreSQL için
+                entity.Property(e => e.Hobbies).HasColumnType("jsonb"); // PostgreSQL için
+                entity.HasIndex(e => new { e.SocialProvider, e.SocialId }).IsUnique();
+                entity.HasMany(e => e.Progresses).WithOne(p => p.User).HasForeignKey(p => p.UserId);
             });
 
             modelBuilder.Entity<Progress>(entity =>
