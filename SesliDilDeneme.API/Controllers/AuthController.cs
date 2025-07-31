@@ -86,6 +86,9 @@ namespace SesliDilDeneme.API.Controllers
         {
             try
             {
+                // Frontend’den gelen verileri logla
+                Console.WriteLine($"Frontend Data - Email: {request.Email}, FirstName: {request.FirstName}, LastName: {request.LastName}");
+
                 var handler = new JwtSecurityTokenHandler();
 
                 // 1. Apple public keys endpoint'inden public key'leri al
@@ -99,17 +102,14 @@ namespace SesliDilDeneme.API.Controllers
                 {
                     ValidateIssuer = true,
                     ValidIssuer = "https://appleid.apple.com",
-
                     ValidateAudience = true,
                     ValidAudience = _configuration["Apple:ClientId"],
-
                     ValidateLifetime = true,
                     RequireExpirationTime = true,
-
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKeys = keys
                 };
-                
+
                 // 3. Token'ı doğrula
                 var principal = handler.ValidateToken(request.IdToken, validationParameters, out var validatedToken);
 
@@ -119,17 +119,42 @@ namespace SesliDilDeneme.API.Controllers
                 if (string.IsNullOrEmpty(socialId))
                     return Unauthorized("Apple ID token is invalid");
 
-                // Apple id_token bazı durumlarda e-mail sağlamaz (ilk login harici)
-                var email = principal.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
-                email = string.IsNullOrEmpty(email) ? $"{socialId}@apple.local" : email.Length > 255 ? email.Substring(0, 255) : email;
-                var firstName = principal.Claims.FirstOrDefault(c => c.Type == "given_name")?.Value ?? "AppleUser";
+                // Token’ın ham halini ve claim’leri logla
+                Console.WriteLine($"Raw Apple Token: {request.IdToken}");
+                Console.WriteLine("Apple Token Claims:");
+                foreach (var claim in principal.Claims)
+                {
+                    Console.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}");
+                }
+
+                // Token’dan email’i al ve frontend’den gelenle karşılaştır
+                var tokenEmail = principal.Claims.FirstOrDefault(c => c.Type == "email" ||
+                    c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
+                var email = string.IsNullOrEmpty(request.Email) ? (string.IsNullOrEmpty(tokenEmail) ? $"{socialId}@apple.local" : tokenEmail) : request.Email;
+                if (!string.IsNullOrEmpty(tokenEmail) && !string.IsNullOrEmpty(request.Email) && tokenEmail != request.Email)
+                {
+                    Console.WriteLine($"Email mismatch: Token Email: {tokenEmail}, Frontend Email: {request.Email}");
+                    return BadRequest("Email in token does not match frontend-provided email.");
+                }
+                email = email.Length > 255 ? email.Substring(0, 255) : email;
+
+                // Frontend’den gelen firstName ve lastName’i kullan, eksikse token’dan veya varsayılan değerlerden al
+                var firstName = string.IsNullOrEmpty(request.FirstName)
+                    ? (principal.Claims.FirstOrDefault(c => c.Type == "given_name" ||
+                        c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname")?.Value ?? "Guest")
+                    : request.FirstName;
                 firstName = firstName.Length > 100 ? firstName.Substring(0, 100) : firstName;
-                var lastName = principal.Claims.FirstOrDefault(c => c.Type == "family_name")?.Value ?? "AppleLastName";
+
+                var lastName = string.IsNullOrEmpty(request.LastName)
+                    ? (principal.Claims.FirstOrDefault(c => c.Type == "family_name" ||
+                        c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname")?.Value ?? "User")
+                    : request.LastName;
                 lastName = lastName.Length > 100 ? lastName.Substring(0, 100) : lastName;
 
                 var user = await _userService.GetOrCreateBySocialAsync(
                     "apple", socialId, email, firstName, lastName
                 );
+
                 if (user == null)
                     return Unauthorized("User creation failed");
 
@@ -144,21 +169,32 @@ namespace SesliDilDeneme.API.Controllers
                 // JWT üret
                 var jwt = GenerateJwtToken(user);
 
-                return Ok(new { Token = jwt, UserId = user.UserId });
+                return Ok(new
+                {
+                    Token = jwt,
+                    UserId = user.UserId,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName
+                });
             }
             catch (SecurityTokenException ex)
             {
                 return BadRequest(new { message = "Apple token validation failed", error = ex.Message });
             }
+            catch (DbUpdateException ex)
+            {
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                Console.WriteLine($"DbUpdateException: {innerException}");
+                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+            }
             catch (Exception ex)
             {
-                Console.WriteLine("User creation failed:");
-                Console.WriteLine(ex.ToString());
-                if (ex.InnerException != null)
-                    Console.WriteLine("Inner Exception: " + ex.InnerException.Message);
-                throw;
+                Console.WriteLine($"General error: {ex}");
+                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
             }
         }
+
         private string GenerateJwtToken(User user)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
