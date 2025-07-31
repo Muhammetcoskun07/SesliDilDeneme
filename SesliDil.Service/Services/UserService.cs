@@ -37,6 +37,8 @@ namespace SesliDil.Service.Services
                 throw new ArgumentException("FirstName cannot be null or empty.");
             if (string.IsNullOrEmpty(lastName))
                 throw new ArgumentException("LastName cannot be null or empty.");
+            if (string.IsNullOrEmpty(email))
+                email = $"{socialId}@{provider.ToLower()}.local"; // Varsayılan e-posta
 
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.SocialProvider == provider && u.SocialId == socialId);

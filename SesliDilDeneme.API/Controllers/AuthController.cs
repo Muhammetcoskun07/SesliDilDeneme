@@ -121,11 +121,15 @@ namespace SesliDilDeneme.API.Controllers
 
                 // Apple id_token bazı durumlarda e-mail sağlamaz (ilk login harici)
                 var email = principal.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+                email = string.IsNullOrEmpty(email) ? $"{socialId}@apple.local" : email.Length > 255 ? email.Substring(0, 255) : email;
+                var firstName = principal.Claims.FirstOrDefault(c => c.Type == "given_name")?.Value ?? "AppleUser";
+                firstName = firstName.Length > 100 ? firstName.Substring(0, 100) : firstName;
+                var lastName = principal.Claims.FirstOrDefault(c => c.Type == "family_name")?.Value ?? "AppleLastName";
+                lastName = lastName.Length > 100 ? lastName.Substring(0, 100) : lastName;
 
                 var user = await _userService.GetOrCreateBySocialAsync(
-                    "apple", socialId, email, "AppleUser", "LastName"
+                    "apple", socialId, email, firstName, lastName
                 );
-
                 if (user == null)
                     return Unauthorized("User creation failed");
 
