@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace SesliDil.Service.Services
@@ -61,9 +62,12 @@ namespace SesliDil.Service.Services
                 TargetLanguage = null,
                 ProficiencyLevel = null,
                 AgeRange = null,
+                LearningGoals = JsonDocument.Parse("[]"),
+                Hobbies = JsonDocument.Parse("[]"),
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow
             };
+
 
             try
             {
