@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace SesliDil.Service.Services
@@ -25,57 +26,55 @@ namespace SesliDil.Service.Services
             _context = context;
         }
 
-        public async Task<User> GetOrCreateBySocialAsync(string socialProvider, string socialId, string email, string firstName, string lastName)
+        public async Task<User> GetOrCreateBySocialAsync(string provider, string socialId, string email, string firstName, string lastName)
         {
-            if (string.IsNullOrEmpty(socialProvider) || string.IsNullOrEmpty(socialId))
+            // Veri doğrulama
+            if (string.IsNullOrEmpty(provider))
+                throw new ArgumentException("SocialProvider cannot be null or empty.");
+            if (string.IsNullOrEmpty(socialId))
+                throw new ArgumentException("SocialId cannot be null or empty.");
+            if (string.IsNullOrEmpty(firstName))
+                throw new ArgumentException("FirstName cannot be null or empty.");
+            if (string.IsNullOrEmpty(lastName))
+                throw new ArgumentException("LastName cannot be null or empty.");
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.SocialProvider == provider && u.SocialId == socialId);
+
+            if (user != null)
+                return user;
+
+            user = new User
             {
-                throw new ArgumentNullException("Social provider and social ID are required");
-            }
-
-            // Email, firstName, lastName boşsa default değer ata (örneğin boş string değil, güvenli bir değer)
-            email = string.IsNullOrEmpty(email) ? $"{socialId}@{socialProvider}.local" : email;
-            firstName = string.IsNullOrEmpty(firstName) ? $"{socialProvider}_User" : firstName;
-            lastName = string.IsNullOrEmpty(lastName) ? "LastName" : lastName;
-
-            // Daha performanslı ve doğrudan sorgu yapalım
-            var existingUser = await _userRepository.Query()
-                .FirstOrDefaultAsync(u => u.SocialProvider == socialProvider && u.SocialId == socialId);
-
-            if (existingUser != null)
-            {
-                // Giriş yapma sırasında last login güncelle
-                existingUser.LastLoginAt = DateTime.UtcNow;
-                await UpdateAsync(existingUser);
-                return existingUser;
-            }
-
-            var newUser = new User
-            {
-                UserId = Guid.NewGuid().ToString(),
-                SocialProvider = socialProvider,
-                SocialId = socialId,
-                Email = email,
-                FirstName = firstName,
-                LastName = lastName,
-                NativeLanguage = null,
-                TargetLanguage = null,
-                ProficiencyLevel = null,
-                AgeRange = null,
+                SocialProvider = provider.Length > 10 ? provider.Substring(0, 10) : provider,
+                SocialId = socialId.Length > 255 ? socialId.Substring(0, 255) : socialId,
+                Email = email?.Length > 255 ? email.Substring(0, 255) : email,
+                FirstName = firstName.Length > 100 ? firstName.Substring(0, 100) : firstName,
+                LastName = lastName.Length > 100 ? lastName.Substring(0, 100) : lastName,
+                NativeLanguage = "en", // Varsayılan dil
+                TargetLanguage = "en", // Varsayılan hedef dil
+                ProficiencyLevel = "A1", // Varsayılan yeterlilik seviyesi
+                AgeRange = "18-24", // Varsayılan yaş aralığı
                 CreatedAt = DateTime.UtcNow,
-                LastLoginAt = DateTime.UtcNow
+                LastLoginAt = DateTime.UtcNow,
+                LearningGoals = JsonDocument.Parse("[]"),
+                Hobbies = JsonDocument.Parse("[]")
             };
 
             try
             {
-                await CreateAsync(newUser);
-                return newUser;
+                await _context.Users.AddAsync(user);
+                await _context.SaveChangesAsync();
             }
-            catch (Exception ex)
+            catch (DbUpdateException ex)
             {
-                Console.WriteLine($"User creation failed: {ex.ToString()}");
-                throw;
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                throw new Exception($"Failed to save user: {innerException}", ex);
             }
+
+            return user;
         }
+
         public async Task<bool> DeleteUserCompletelyAsync(string userId)
         {
             var user = await _userRepository.GetByIdAsync(userId);

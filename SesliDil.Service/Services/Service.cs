@@ -8,6 +8,7 @@ using SesliDil.Service.Interfaces;
 using SesliDil.Core.Mappings;
 using SesliDil.Core.Entities;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 
 namespace SesliDil.Service.Services
 {
@@ -29,9 +30,17 @@ namespace SesliDil.Service.Services
         }
         public virtual async Task CreateAsync(T entity)
         {
-            if(entity == null) throw new ArgumentNullException(nameof(entity));
+            if (entity == null) throw new ArgumentNullException(nameof(entity));
             await _repository.AddAsync(entity);
-            await _repository.SaveChangesAsync();
+            try
+            {
+                await _repository.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                throw new Exception($"Failed to save entity: {innerException}", ex);
+            }
         }
         public virtual async Task UpdateAsync(T entity)
         {
