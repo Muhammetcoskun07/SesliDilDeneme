@@ -163,5 +163,17 @@ namespace SesliDilDeneme.API.Controllers
 
             return Ok(new { message = "User and all related data deleted successfully." });
         }
+        [HttpPatch("{userId}/learning-goals")]
+        public async Task<IActionResult> UpdateLearningGoals(string userId, [FromBody] List<string> learningGoals)
+        {
+            if (learningGoals == null || !learningGoals.Any())
+                return BadRequest("Learning goals are required.");
+
+            var result = await _userService.UpdateLearningGoalsAsync(userId, learningGoals);
+            if (!result)
+                return NotFound("User not found.");
+
+            return NoContent();
+        }
     }
 }
