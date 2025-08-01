@@ -118,6 +118,16 @@ namespace SesliDil.Service.Services
             await _context.SaveChangesAsync();
             return true;
         }
+        public async Task<bool> UpdateLearningGoalsAsync(string userId, List<string> goals)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+                return false;
+
+            user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(goals));
+            await _context.SaveChangesAsync();
+            return true;
+        }
         public async Task UpdateAsync(User user)
         {
             _context.Users.Update(user);
