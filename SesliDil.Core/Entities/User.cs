@@ -23,6 +23,7 @@ namespace SesliDil.Core.Entities
         public JsonDocument? Hobbies { get; set; } // JSON array
         public DateTime? CreatedAt { get; set; }
         public DateTime? LastLoginAt { get; set; }
+        public bool HasCompletedOnboarding { get; set; } = false;
 
         public ICollection<Progress> Progresses { get; set; }
 

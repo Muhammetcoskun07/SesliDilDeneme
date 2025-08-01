@@ -55,7 +55,7 @@ namespace SesliDilDeneme.API.Controllers
                 });
 
                 var jwtToken = GenerateJwtToken(user);
-                return Ok(new { Token = jwtToken, UserId = user.UserId });
+                return Ok(new { Token = jwtToken, UserId = user.UserId, HasCompletedOnboarding = user.HasCompletedOnboarding });
             }
             catch (DbUpdateException ex)
             {
@@ -175,7 +175,8 @@ namespace SesliDilDeneme.API.Controllers
                     UserId = user.UserId,
                     Email = user.Email,
                     FirstName = user.FirstName,
-                    LastName = user.LastName
+                    LastName = user.LastName,
+                    HasCompletedOnboarding = user.HasCompletedOnboarding
                 });
             }
             catch (SecurityTokenException ex)
