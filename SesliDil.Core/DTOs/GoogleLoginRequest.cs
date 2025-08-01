@@ -9,5 +9,6 @@ namespace SesliDil.Core.DTOs
     public class GoogleLoginRequest
     {
         public string IdToken { get; set; }
+        public bool HasCompletedOnboarding { get; set; }
     }
 }

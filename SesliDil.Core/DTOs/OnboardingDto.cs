@@ -12,6 +12,7 @@ namespace SesliDil.Core.DTOs
         public string TargetLanguage { get; set; }
         public string ProficiencyLevel { get; set; }
         public string AgeRange { get; set; }
+        public bool HasCompletedOnboarding { get; set; }
     }
 }
 

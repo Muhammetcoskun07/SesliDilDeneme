@@ -136,15 +136,11 @@ namespace SesliDilDeneme.API.Controllers
                 return BadRequest(new { message = "Database error while saving changes", error = innerException });
             }
         }
-       
-            [Authorize]
-        [HttpPost("onboarding")]
-        public async Task<IActionResult> Onboarding([FromBody] OnboardingDto onboardingDto)
+
+        [HttpPost("onboarding/{userId}")]
+        public async Task<IActionResult> Onboarding(string userId, [FromBody] OnboardingDto onboardingDto)
         {
             if (onboardingDto == null) return BadRequest("Invalid onboarding data");
-
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
             var user = await _userService.GetByIdAsync<string>(userId);
             if (user == null) return NotFound();
@@ -153,6 +149,7 @@ namespace SesliDilDeneme.API.Controllers
             user.TargetLanguage = onboardingDto.TargetLanguage;
             user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
             user.AgeRange = onboardingDto.AgeRange;
+            user.HasCompletedOnboarding = true;
 
             await _userService.UpdateAsync(user);
             return Ok("Onboarding bilgileri kaydedildi.");

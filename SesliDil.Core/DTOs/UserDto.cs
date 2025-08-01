@@ -20,6 +20,7 @@ namespace SesliDil.Core.DTOs
         public string ProficiencyLevel { get; set; }
         public string AgeRange { get; set; }
         public string[] Hobbies { get; set; }
+        public Boolean HasCompletedOnboarding { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime LastLoginAt { get; set; }
     }
