@@ -12,6 +12,10 @@ namespace SesliDil.Core.DTOs
         public string TargetLanguage { get; set; }
         public string ProficiencyLevel { get; set; }
         public string AgeRange { get; set; }
+        public string[] ImprovementGoals { get; set; }
+        public string[] TopicInterests { get; set; }
+        public string WeeklySpeakingGoal { get; set; }
+
     }
 }
 
