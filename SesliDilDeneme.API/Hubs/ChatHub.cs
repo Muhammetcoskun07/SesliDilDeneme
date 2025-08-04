@@ -33,7 +33,7 @@ namespace SesliDilDeneme.API.Hubs
                 message.Content = await _messageService.ConvertSpeechToTextAsync(message.AudioUrl);
                 var targetLanguage = "Spanish"; // Mock: UserDto’dan alınabilir
                 message.TranslatedContent = await _messageService.TranslateAsync(message.Content, targetLanguage, agentId);
-                message.GrammarErrors = await _messageService.CheckGrammarAsync(message.Content);
+                message.GrammarErrors = await _messageService.CheckGrammarAsync(message.Content,agentId);
             }
 
             // Mesajı tüm istemcilere gönder

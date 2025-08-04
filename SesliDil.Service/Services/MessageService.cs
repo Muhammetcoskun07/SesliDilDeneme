@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -22,22 +23,29 @@ namespace SesliDil.Service.Services
         private readonly IConfiguration _configuration;
         private readonly IRepository<AIAgent> _agentRepository;
 
-        public MessageService(IRepository<Message> messageRepository, IMapper mapper, HttpClient httpClient, IConfiguration configuration, IRepository<AIAgent> agentRepository)
+        public MessageService(
+            IRepository<Message> messageRepository,
+            IMapper mapper,
+            HttpClient httpClient,
+            IConfiguration configuration,
+            IRepository<AIAgent> agentRepository)
             : base(messageRepository, mapper)
         {
             _messageRepository = messageRepository;
             _mapper = mapper;
             _httpClient = httpClient;
             _configuration = configuration;
-            _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _configuration["OpenAI:ApiKey"]);
             _agentRepository = agentRepository;
+
+            _httpClient.BaseAddress = new Uri("https://api.cohere.ai/v1/");
+            _httpClient.DefaultRequestHeaders.Authorization =
+    new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
         }
 
         public async Task<IEnumerable<MessageDto>> GetMessagesByConversationIdAsync(string conversationId)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
-                throw new ArgumentNullException("Invalid conversationId", nameof(conversationId));
+                throw new ArgumentNullException(nameof(conversationId), "Invalid conversationId");
 
             var messages = await _messageRepository.GetAllAsync();
             var filtered = messages.Where(m => m.ConversationId == conversationId);
@@ -59,6 +67,7 @@ namespace SesliDil.Service.Services
                 SpeakerType = role,
                 CreatedAt = DateTime.UtcNow
             };
+
             await CreateAsync(message);
             return _mapper.Map<MessageDto>(message);
         }
@@ -69,24 +78,29 @@ namespace SesliDil.Service.Services
             {
                 model = "tts-1",
                 input = text,
-                voice = "alloy" // OpenAI ses
+                voice = "alloy"
             };
+
             var response = await _httpClient.PostAsJsonAsync("audio/speech", requestBody);
             response.EnsureSuccessStatusCode();
+
+            // TODO: Gerçek ses dosyası yüklemesi (örnek S3) yapılmalı
             var audioStream = await response.Content.ReadAsStreamAsync();
-            // Gerçekte: Ses dosyasını S3’e yükleyip URL döndür
-            return "https://your-storage-bucket/speech.mp3"; // Mock, S3 ile güncelle
+            return "https://your-storage-bucket/speech.mp3";
         }
 
         public async Task<string> ConvertSpeechToTextAsync(string audioUrl)
         {
             var audioContent = await DownloadAudioAsync(audioUrl);
+
             using var content = new MultipartFormDataContent
             {
                 { new StreamContent(new MemoryStream(audioContent)), "file", "audio.mp3" }
             };
+
             var response = await _httpClient.PostAsync("audio/transcriptions", content);
             response.EnsureSuccessStatusCode();
+
             var result = await response.Content.ReadFromJsonAsync<TranscriptionResponse>();
             return result.Text;
         }
@@ -95,69 +109,67 @@ namespace SesliDil.Service.Services
         {
             if (string.IsNullOrEmpty(text)) return string.Empty;
 
-            // Agent’ın prompt’ını al
             var agent = await _agentRepository.GetByIdAsync(agentId);
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
 
-            var prompt = agent.AgentPrompt ?? "Translate the following text accurately into the specified language: {0}";
-            var fullPrompt = string.Format(prompt, text);
+            var prompt = $"{agent.AgentPrompt}\nNow translate the following into {targetLanguage}:\n{text}";
+
             var requestBody = new
             {
-                model = "gpt-3.5-turbo",
-                messages = new[] { new { role = "user", content = $"{fullPrompt} to {targetLanguage}" } },
-                temperature = 0.7
+                message = prompt,
+                model = "command-r", // veya "command-r-plus" (ücretli)
+                temperature = 0.5
             };
-            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
-            response.EnsureSuccessStatusCode();
-            var result = await response.Content.ReadFromJsonAsync<TranslationResponse>();
-            return result.Choices[0].Message.Content;
-        }
 
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.ai/v1/chat");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
+            request.Content = JsonContent.Create(requestBody);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<CohereChatResponse>();
+            return result?.Text ?? "";
+        }
+        public async Task<List<string>> CheckGrammarAsync(string text, string agentId)
+        {
+            if (string.IsNullOrEmpty(text)) return new List<string>();
+
+            var agent = await _agentRepository.GetByIdAsync(agentId);
+            if (agent == null || !agent.IsActive)
+                throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
+
+            var prompt = $"{agent.AgentPrompt}\nIdentify and list all grammar mistakes in the following text. Return only the errors:\n{text}";
+
+            var requestBody = new
+            {
+                message = prompt,
+                model = "command-r",
+                temperature = 0.2
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.ai/v1/chat");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
+            request.Content = JsonContent.Create(requestBody);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<CohereChatResponse>();
+            var errorsText = result?.Text ?? "";
+
+            var errors = errorsText
+                .Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(e => e.Trim())
+                .ToList();
+
+            return errors;
+        }
         private async Task<byte[]> DownloadAudioAsync(string audioUrl)
         {
             using var client = new HttpClient();
             return await client.GetByteArrayAsync(audioUrl);
         }
-        public async Task<List<string>> CheckGrammarAsync(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return new List<string>();
-
-            var prompt = "Identify and list all grammar errors in the following text, return only the errors as a list: {0}";
-            var fullPrompt = string.Format(prompt, text);
-            var requestBody = new
-            {
-                model = "gpt-3.5-turbo",
-                messages = new[] { new { role = "user", content = fullPrompt } },
-                temperature = 0.2 // 0.0-1.0 arasında 0a yaklaştıkç kesinlik artar
-            };
-
-            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
-            response.EnsureSuccessStatusCode();
-            var result = await response.Content.ReadFromJsonAsync<TranslationResponse>();
-            var errorsText = result.Choices[0].Message.Content;
-
-            // OpenAI'dan gelen metni listeye çevir
-            var errors = errorsText.Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(e => e.Trim()).ToList();
-            return errors.Any() ? errors : new List<string>();
-        }
     }
-
-    public class TranscriptionResponse
-    {
-        public string Text { get; set; }
-    }
-
-    public class TranslationResponse
-    {
-        public List<Choice> Choices { get; set; }
-    }
-
-    public class Choice
-    {
-        public Message Message { get; set; }
-    }
-
-
 }
