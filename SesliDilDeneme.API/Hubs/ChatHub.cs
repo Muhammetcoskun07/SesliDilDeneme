@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using SesliDil.Core.DTOs;
 using SesliDil.Service.Services;
@@ -15,29 +16,32 @@ namespace SesliDilDeneme.API.Hubs
             _messageService = messageService;
         }
 
-        public async Task SendMessage(MessageDto message,string agentId)
+        public async Task SendMessage(SendMessageRequest request)
         {
-            // Doğrulama
-            var validator = new MessageValidator();
-            var result = validator.Validate(message);
-            if (!result.IsValid)
+            try
             {
-                await Clients.Caller.SendAsync("ReceiveError", result.Errors.Select(e => e.ErrorMessage));
-                return;
-            }
-            message.GrammarErrors = new List<string>();
+                // MessageService ile mesajı işle
+                var message = await _messageService.SendMessageAsync(request);
 
-            // Ses dosyası varsa, texte çevir ve çevir
-            if (!string.IsNullOrEmpty(message.AudioUrl))
+                // Mesajı ilgili konuşmadaki tüm istemcilere gönder
+                await Clients.Group(message.ConversationId)
+                    .SendAsync("ReceiveMessage", message);
+            }
+            catch (ValidationException ex)
             {
-                message.Content = await _messageService.ConvertSpeechToTextAsync(message.AudioUrl);
-                var targetLanguage = "Spanish"; // Mock: UserDto’dan alınabilir
-                message.TranslatedContent = await _messageService.TranslateAsync(message.Content, targetLanguage, agentId);
-                message.GrammarErrors = await _messageService.CheckGrammarAsync(message.Content,agentId);
+                // FluentValidation hatalarını istemciye gönder
+                await Clients.Caller.SendAsync("Error", ex.Message);
             }
-
-            // Mesajı tüm istemcilere gönder
-            await Clients.All.SendAsync("ReceiveMessage", message);
+            catch (ArgumentException ex)
+            {
+                // Diğer hata mesajlarını istemciye gönder
+                await Clients.Caller.SendAsync("Error", ex.Message);
+            }
+            catch (Exception ex)
+            {
+                // Loglama yapılabilir
+                await Clients.Caller.SendAsync("Error", "An error occurred while processing the message");
+            }
         }
     }
 }

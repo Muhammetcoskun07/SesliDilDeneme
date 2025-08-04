@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
@@ -97,45 +98,24 @@ namespace SesliDilDeneme.API.Controllers
         [HttpPost("send")]
         public async Task<ActionResult<MessageDto>> SendMessage([FromBody] SendMessageRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.AgentId))
-                return BadRequest("Invalid input");
-
-            // Kullanıcıyı veritabanından çek
-            var user = await _userRepository.GetByIdAsync(request.UserId);
-            if (user == null) return NotFound("User not found");
-
-            // Kullanıcının hedef dilini kullan
-            var targetLanguage = user.TargetLanguage;
-            if (string.IsNullOrWhiteSpace(targetLanguage))
-                return BadRequest("User's target language is not specified");
-
-            var message = new MessageDto
+            try
             {
-                MessageId = Guid.NewGuid().ToString(),
-                ConversationId = request.ConversationId ?? Guid.NewGuid().ToString(),
-                Role = "user",
-                Content = request.Content,
-                CreatedAt = DateTime.UtcNow,
-                GrammarErrors = new List<string>()
-            };
-
-            var translated = await _messageService.TranslateAsync(message.Content, targetLanguage, request.AgentId);
-            var grammar = await _messageService.CheckGrammarAsync(message.Content, request.AgentId);
-
-            message.TranslatedContent = translated;
-            message.GrammarErrors = grammar;
-
-            await _messageService.CreateAsync(new Message
+                var message = await _messageService.SendMessageAsync(request);
+                return Ok(message);
+            }
+            catch (ValidationException ex)
             {
-                MessageId = message.MessageId,
-                ConversationId = message.ConversationId,
-                Role = message.Role,
-                Content = message.Content,
-                SpeakerType = message.SpeakerType,
-                CreatedAt = message.CreatedAt
-            });
-
-            return Ok(message);
+                return BadRequest(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                // Loglama yapılabilir
+                return StatusCode(500, "An error occurred while processing the request");
+            }
         }
         [HttpGet("translated")]
         public async Task<IActionResult> GetTranslatedMessage([FromQuery] string messageId)

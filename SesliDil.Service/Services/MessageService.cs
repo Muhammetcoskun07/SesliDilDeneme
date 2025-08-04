@@ -22,15 +22,19 @@ namespace SesliDil.Service.Services
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
         private readonly IRepository<AIAgent> _agentRepository;
+        private readonly IRepository<User> _userRepository;
 
         public MessageService(
             IRepository<Message> messageRepository,
             IMapper mapper,
             HttpClient httpClient,
             IConfiguration configuration,
+            IRepository<User> userRepository,
             IRepository<AIAgent> agentRepository)
             : base(messageRepository, mapper)
+
         {
+            _userRepository = userRepository;
             _messageRepository = messageRepository;
             _mapper = mapper;
             _httpClient = httpClient;
@@ -41,7 +45,40 @@ namespace SesliDil.Service.Services
             _httpClient.DefaultRequestHeaders.Authorization =
     new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
         }
+        public async Task<MessageDto> SendMessageAsync(SendMessageRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.AgentId))
+                throw new ArgumentException("Invalid input");
 
+            // Kullanıcıyı veritabanından çek
+            var user = await _userRepository.GetByIdAsync(request.UserId);
+            if (user == null)
+                throw new ArgumentException("User not found");
+
+            // TargetLanguage'in boş olup olmadığını kontrol et
+            if (string.IsNullOrWhiteSpace(user.TargetLanguage))
+                throw new ArgumentException("User's target language is not specified");
+
+            var message = new Message
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                ConversationId = request.ConversationId ?? Guid.NewGuid().ToString(),
+                Role = "user",
+                Content = request.Content,
+                CreatedAt = DateTime.UtcNow,
+                SpeakerType = "user",
+                GrammarErrors = new List<string>()
+            };
+
+            var translated = await TranslateAsync(message.Content, user.TargetLanguage, request.AgentId);
+            var grammar = await CheckGrammarAsync(message.Content, request.AgentId);
+
+            message.TranslatedContent = translated;
+            message.GrammarErrors = grammar;
+
+            await CreateAsync(message);
+            return _mapper.Map<MessageDto>(message);
+        }
         public async Task<IEnumerable<MessageDto>> GetMessagesByConversationIdAsync(string conversationId)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
@@ -71,6 +108,7 @@ namespace SesliDil.Service.Services
             await CreateAsync(message);
             return _mapper.Map<MessageDto>(message);
         }
+  
 
         public async Task<string> GenerateSpeechAsync(string text)
         {
