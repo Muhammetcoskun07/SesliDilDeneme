@@ -19,7 +19,6 @@ namespace SesliDil.Core.DTOs
         public string[] LearningGoals { get; set; }
         public string ProficiencyLevel { get; set; }
         public string AgeRange { get; set; }
-        public string[] Hobbies { get; set; }
         public Boolean HasCompletedOnboarding { get; set; }
         public string[] ImprovementGoals { get; set; }
         public string[] TopicInterests { get; set; }

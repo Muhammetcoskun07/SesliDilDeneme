@@ -17,7 +17,6 @@ namespace SesliDil.Core.DTOs
         public string[] TopicInterests { get; set; }
         public string WeeklySpeakingGoal { get; set; }
         public string[] LearningGoals { get; set; }
-        public string[] Hobbies { get; set; }
 
 
     }

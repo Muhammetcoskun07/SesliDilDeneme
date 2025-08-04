@@ -20,7 +20,6 @@ namespace SesliDil.Core.Entities
         public JsonDocument? LearningGoals { get; set; } // JSON array
         public string? ProficiencyLevel { get; set; } // ENUM: A1, A2, B1, B2, C1, C2
         public string? AgeRange { get; set; } // ENUM: 13-17, 18-24, 25-34, 35-44, 45-54, 55+
-        public JsonDocument? Hobbies { get; set; } // JSON array
         public JsonDocument? ImprovementGoals { get; set; } // JSON array
         public JsonDocument? TopicInterests { get; set; } // JSON array
         public string? WeeklySpeakingGoal { get; set; }

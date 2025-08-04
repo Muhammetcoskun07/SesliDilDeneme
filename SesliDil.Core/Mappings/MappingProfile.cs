@@ -17,8 +17,6 @@ namespace SesliDil.Core.Mappings
             CreateMap<User, UserDto>()
                 .ForMember(dest => dest.LearningGoals,
                     opt => opt.MapFrom(src => JsonToArray(src.LearningGoals)))
-                .ForMember(dest => dest.Hobbies,
-                    opt => opt.MapFrom(src => JsonToArray(src.Hobbies)))
                 .ForMember(dest => dest.ImprovementGoals,
                     opt => opt.MapFrom(src => JsonToArray(src.ImprovementGoals)))
                 .ForMember(dest => dest.TopicInterests,
@@ -26,8 +24,6 @@ namespace SesliDil.Core.Mappings
                 .ReverseMap()
                 .ForMember(dest => dest.LearningGoals,
                     opt => opt.MapFrom(src => ArrayToJson(src.LearningGoals)))
-                .ForMember(dest => dest.Hobbies,
-                    opt => opt.MapFrom(src => ArrayToJson(src.Hobbies)))
                 .ForMember(dest => dest.ImprovementGoals,
                     opt => opt.MapFrom(src => ArrayToJson(src.ImprovementGoals)))
                 .ForMember(dest => dest.TopicInterests,

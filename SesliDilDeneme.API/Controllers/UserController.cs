@@ -61,7 +61,6 @@ namespace SesliDilDeneme.API.Controllers
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow,
                 LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(userDto.LearningGoals ?? Array.Empty<string>())),
-                Hobbies = JsonDocument.Parse(JsonSerializer.Serialize(userDto.Hobbies ?? Array.Empty<string>())),
                 ImprovementGoals = JsonDocument.Parse("[]"),
                 TopicInterests = JsonDocument.Parse("[]"),
                 WeeklySpeakingGoal = ""
@@ -100,7 +99,6 @@ namespace SesliDilDeneme.API.Controllers
             user.ProficiencyLevel = userDto.ProficiencyLevel?.Length > 2 ? userDto.ProficiencyLevel[..2] : userDto.ProficiencyLevel;
             user.AgeRange = userDto.AgeRange?.Length > 5 ? userDto.AgeRange[..5] : userDto.AgeRange;
             user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(userDto.LearningGoals ?? Array.Empty<string>()));
-            user.Hobbies = JsonDocument.Parse(JsonSerializer.Serialize(userDto.Hobbies ?? Array.Empty<string>()));
             user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(userDto.ImprovementGoals ?? Array.Empty<string>()));
             user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(userDto.TopicInterests ?? Array.Empty<string>()));
             user.WeeklySpeakingGoal = userDto.WeeklySpeakingGoal ?? "";
@@ -160,10 +158,7 @@ namespace SesliDilDeneme.API.Controllers
             user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
             user.AgeRange = onboardingDto.AgeRange;
             user.HasCompletedOnboarding = onboardingDto.HasCompletedOnboarding;
-
-            // Yeni alanlar (JSON olarak veritabanına gömülüyor)
             user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.LearningGoals ?? Array.Empty<string>()));
-            user.Hobbies = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.Hobbies ?? Array.Empty<string>()));
             user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
             user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
             user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
@@ -181,6 +176,7 @@ namespace SesliDilDeneme.API.Controllers
 
             return Ok(new { message = "User and all related data deleted successfully." });
         }
+
         [HttpPatch("{userId}/learning-goals")]
         public async Task<IActionResult> UpdateLearningGoals(string userId, [FromBody] List<string> learningGoals)
         {
