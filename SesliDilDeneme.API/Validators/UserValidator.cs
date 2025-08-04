@@ -12,7 +12,6 @@ namespace SesliDilDeneme.API.Validators
             RuleFor(x => x.AgeRange).NotEmpty().
                 WithMessage("AgeRange is required").Must(BeValidAgeRange).WithMessage("AgeRange must be in format '18-24' etc.");
             RuleFor(x => x.LearningGoals).NotEmpty().WithMessage("Learning goals are required.");
-            RuleFor(x => x.Hobbies).NotEmpty().WithMessage("Hobbies are required.");
             RuleFor(x => x.NativeLanguage).NotEmpty().
                 WithMessage("Native Language is required").Must(BeValidLanguage).WithMessage("Invalid native Language");
             RuleFor(x => x.ImprovementGoals)

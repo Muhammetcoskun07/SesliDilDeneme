@@ -43,7 +43,6 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.LastLoginAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.LearningGoals).HasColumnType("jsonb"); // PostgreSQL için
-                entity.Property(e => e.Hobbies).HasColumnType("jsonb"); // PostgreSQL için
                 entity.Property(e => e.HasCompletedOnboarding).IsRequired().HasDefaultValue(false);
                 entity.HasIndex(e => new { e.SocialProvider, e.SocialId }).IsUnique();
                 entity.HasMany(e => e.Progresses).WithOne(p => p.User).HasForeignKey(p => p.UserId);
