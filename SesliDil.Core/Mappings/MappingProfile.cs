@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace SesliDil.Core.Mappings
@@ -13,7 +14,25 @@ namespace SesliDil.Core.Mappings
     {
         public MappingProfile()
         {
-            CreateMap<User, UserDto>().ReverseMap();
+            CreateMap<User, UserDto>()
+                .ForMember(dest => dest.LearningGoals,
+                    opt => opt.MapFrom(src => JsonToArray(src.LearningGoals)))
+                .ForMember(dest => dest.Hobbies,
+                    opt => opt.MapFrom(src => JsonToArray(src.Hobbies)))
+                .ForMember(dest => dest.ImprovementGoals,
+                    opt => opt.MapFrom(src => JsonToArray(src.ImprovementGoals)))
+                .ForMember(dest => dest.TopicInterests,
+                    opt => opt.MapFrom(src => JsonToArray(src.TopicInterests)))
+                .ReverseMap()
+                .ForMember(dest => dest.LearningGoals,
+                    opt => opt.MapFrom(src => ArrayToJson(src.LearningGoals)))
+                .ForMember(dest => dest.Hobbies,
+                    opt => opt.MapFrom(src => ArrayToJson(src.Hobbies)))
+                .ForMember(dest => dest.ImprovementGoals,
+                    opt => opt.MapFrom(src => ArrayToJson(src.ImprovementGoals)))
+                .ForMember(dest => dest.TopicInterests,
+                    opt => opt.MapFrom(src => ArrayToJson(src.TopicInterests)));
+
             CreateMap<Progress, ProgressDto>().ReverseMap();
             CreateMap<AIAgent, AIAgentDto>().ReverseMap();
             CreateMap<Conversation, ConversationDto>().ReverseMap();
@@ -21,5 +40,18 @@ namespace SesliDil.Core.Mappings
             CreateMap<FileStorage, FileStorageDto>().ReverseMap();
             CreateMap<Session, SessionDto>().ReverseMap();
         }
+
+        private static string[] JsonToArray(JsonDocument? json)
+        {
+            if (json == null) return Array.Empty<string>();
+            return json.RootElement.EnumerateArray().Select(e => e.GetString()).Where(s => s != null).ToArray()!;
+        }
+
+        private static JsonDocument ArrayToJson(string[] array)
+        {
+            var json = JsonSerializer.Serialize(array);
+            return JsonDocument.Parse(json);
+        }
     }
+
 }

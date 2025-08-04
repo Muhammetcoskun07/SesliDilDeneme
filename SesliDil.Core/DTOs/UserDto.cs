@@ -21,6 +21,9 @@ namespace SesliDil.Core.DTOs
         public string AgeRange { get; set; }
         public string[] Hobbies { get; set; }
         public Boolean HasCompletedOnboarding { get; set; }
+        public string[] ImprovementGoals { get; set; }
+        public string[] TopicInterests { get; set; }
+        public string WeeklySpeakingGoal { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime LastLoginAt { get; set; }
     }

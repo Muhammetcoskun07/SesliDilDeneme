@@ -60,8 +60,12 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow,
                 LearningGoals = JsonDocument.Parse("[]"),
-                Hobbies = JsonDocument.Parse("[]")
+                Hobbies = JsonDocument.Parse("[]"),
+                ImprovementGoals = JsonDocument.Parse("[]"),
+                TopicInterests = JsonDocument.Parse("[]"),
+                WeeklySpeakingGoal = "",
             };
+
 
             try
             {
