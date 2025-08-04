@@ -159,14 +159,19 @@ namespace SesliDilDeneme.API.Controllers
             user.TargetLanguage = onboardingDto.TargetLanguage;
             user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
             user.AgeRange = onboardingDto.AgeRange;
-            user.HasCompletedOnboarding = true;
-            user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals));
-            user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests));
-            user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal;
+            user.HasCompletedOnboarding = onboardingDto.HasCompletedOnboarding;
+
+            // Yeni alanlar (JSON olarak veritabanına gömülüyor)
+            user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.LearningGoals ?? Array.Empty<string>()));
+            user.Hobbies = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.Hobbies ?? Array.Empty<string>()));
+            user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
+            user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
+            user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
 
             await _userService.UpdateAsync(user);
             return Ok("Onboarding bilgileri kaydedildi.");
         }
+
         [HttpDelete("{id}/full-delete")]
         public async Task<IActionResult> DeleteUserCompletely(string id)
         {
