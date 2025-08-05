@@ -138,6 +138,7 @@ namespace SesliDilDeneme.API.Controllers
                 );
                 return Ok(user);
             }
+
             catch (DbUpdateException ex)
             {
                 var innerException = ex.InnerException?.Message ?? ex.Message;
