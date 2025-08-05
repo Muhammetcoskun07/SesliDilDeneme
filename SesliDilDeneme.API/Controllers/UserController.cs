@@ -148,23 +148,37 @@ namespace SesliDilDeneme.API.Controllers
         [HttpPost("onboarding/{userId}")]
         public async Task<IActionResult> Onboarding(string userId, [FromBody] OnboardingDto onboardingDto)
         {
-            if (onboardingDto == null) return BadRequest("Invalid onboarding data");
+            try
+            {
+                if (onboardingDto == null)
+                    return BadRequest("Invalid onboarding data");
 
-            var user = await _userService.GetByIdAsync<string>(userId);
-            if (user == null) return NotFound();
+                var user = await _userService.GetByIdAsync<string>(userId);
+                if (user == null)
+                    return NotFound();
 
-            user.NativeLanguage = onboardingDto.NativeLanguage;
-            user.TargetLanguage = onboardingDto.TargetLanguage;
-            user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
-            user.AgeRange = onboardingDto.AgeRange;
-            user.HasCompletedOnboarding = onboardingDto.HasCompletedOnboarding;
-            user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.LearningGoals ?? Array.Empty<string>()));
-            user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
-            user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
-            user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
+                user.NativeLanguage = onboardingDto.NativeLanguage;
+                user.TargetLanguage = onboardingDto.TargetLanguage;
+                user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
+                user.AgeRange = onboardingDto.AgeRange;
+                user.HasCompletedOnboarding = onboardingDto.HasCompletedOnboarding;
 
-            await _userService.UpdateAsync(user);
-            return Ok("Onboarding bilgileri kaydedildi.");
+                user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.LearningGoals ?? Array.Empty<string>()));
+                user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
+                user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
+
+                user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
+
+                await _userService.UpdateAsync(user);
+
+                return Ok("Onboarding bilgileri kaydedildi.");
+            }
+            catch (Exception ex)
+            {
+                // Logger varsa logla
+                Console.WriteLine($"[ONBOARDING ERROR]: {ex.Message}");
+                return StatusCode(500, $"Sunucu hatası: {ex.Message}");
+            }
         }
 
         [HttpDelete("{id}/full-delete")]
