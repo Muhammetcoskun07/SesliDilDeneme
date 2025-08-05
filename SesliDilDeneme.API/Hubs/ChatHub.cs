@@ -79,16 +79,12 @@ namespace SesliDilDeneme.API.Hubs
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                var message = await _messageService.SendMessageAsync(request);
-                await Clients.Group(message.ConversationId).SendAsync("ReceiveMessage", message);
-                stopwatch.Stop();
-                _logger.LogInformation($"SendMessage completed in {stopwatch.ElapsedMilliseconds} ms for ConversationId: {message.ConversationId}");
+                var aiMessage = await _messageService.SendMessageAsync(request);
 
-                if (!_conversationTimers.ContainsKey(message.ConversationId))
-                {
-                    _conversationTimers.TryAdd(message.ConversationId, Stopwatch.StartNew());
-                    _logger.LogInformation($"Conversation timer started for {message.ConversationId}");
-                }
+                await Clients.Group(aiMessage.ConversationId).SendAsync("ReceiveMessage", aiMessage);
+
+                stopwatch.Stop();
+                _logger.LogInformation($"SendMessage completed in {stopwatch.ElapsedMilliseconds} ms for ConversationId: {aiMessage.ConversationId}");
             }
             catch (ValidationException ex)
             {

@@ -12,6 +12,8 @@ namespace SesliDil.Core.Entities
         public string UserId { get; set; } // UUID, foreign key to User
         public string AgentId { get; set; } // VARCHAR(50)
         public string Title { get; set; }
+        //public string Message { get; set; }
+       // public string Status { get; set; } // ENUM: active, completed, paused, abandoned
         public string Message { get; set; }
         public string? Summary { get; set; }
         public string Status { get; set; } // ENUM: active, completed, paused, abandoned
