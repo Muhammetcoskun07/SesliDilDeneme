@@ -38,8 +38,8 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.LastName).HasMaxLength(100).IsRequired();
                 entity.Property(e => e.NativeLanguage).HasMaxLength(10); // Zorunlu
                 entity.Property(e => e.TargetLanguage).HasMaxLength(10);
-                entity.Property(e => e.ProficiencyLevel).HasMaxLength(2);
-                entity.Property(e => e.AgeRange).HasMaxLength(5);
+                entity.Property(e => e.ProficiencyLevel).HasMaxLength(100);
+                entity.Property(e => e.AgeRange).HasMaxLength(50);
                 entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.LastLoginAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.LearningGoals).HasColumnType("jsonb"); // PostgreSQL için
