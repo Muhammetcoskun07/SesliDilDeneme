@@ -13,6 +13,7 @@ namespace SesliDil.Core.DTOs
         public string? Title { get; set; }
         //public string? Status { get; set; }
         public double? DurationMinutes { get; set; }
+        public string? Summary { get; set; }
     }
 
 }
