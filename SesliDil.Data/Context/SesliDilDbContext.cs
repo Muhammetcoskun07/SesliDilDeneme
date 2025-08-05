@@ -105,6 +105,7 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.Language).IsRequired().HasMaxLength(10);
                 entity.Property(e => e.StartedAt).IsRequired();
                 entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.Summary).HasMaxLength(1000);
                 entity.Property(e => e.DurationMinutes);
                 entity.HasOne(e => e.Agent).WithMany().HasForeignKey(e => e.AgentId);
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
