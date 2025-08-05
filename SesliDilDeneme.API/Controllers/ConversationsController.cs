@@ -118,5 +118,26 @@ namespace SesliDilDeneme.API.Controllers
 
             return Ok(conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes);
         }
+
+        //  Summary Get
+        [HttpGet("{id}/summary")]
+        public async Task<ActionResult<ConversationSummaryDto>> GetSummary(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+
+            var summary = await _conversationService.GetSummaryByConversationIdAsync(id);
+            return Ok(summary);
+        }
+
+        //  Summary Save
+        [HttpPost("{id}/summary")]
+        public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
+        {
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(summary))
+                return BadRequest("Invalid input");
+
+            await _conversationService.SaveSummaryAsync(id, summary);
+            return NoContent();
+        }
     }
 }
