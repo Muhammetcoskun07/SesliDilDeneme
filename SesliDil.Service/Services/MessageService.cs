@@ -50,34 +50,48 @@ namespace SesliDil.Service.Services
             if (request == null || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.AgentId))
                 throw new ArgumentException("Invalid input");
 
-            // Kullanıcıyı veritabanından çek
+            // Kullanıcıyı al
             var user = await _userRepository.GetByIdAsync(request.UserId);
             if (user == null)
                 throw new ArgumentException("User not found");
 
-            // TargetLanguage'in boş olup olmadığını kontrol et
             if (string.IsNullOrWhiteSpace(user.TargetLanguage))
                 throw new ArgumentException("User's target language is not specified");
 
-            var message = new Message
+            // Kullanıcı mesajı
+            var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
-                ConversationId = request.ConversationId ?? Guid.NewGuid().ToString(),
+                ConversationId = request.ConversationId,
                 Role = "user",
                 Content = request.Content,
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "user",
-                GrammarErrors = new List<string>()
+                GrammarErrors = new List<string>(),
+                TranslatedContent = await TranslateAsync(request.Content, user.TargetLanguage, request.AgentId)
             };
 
-            var translated = await TranslateAsync(message.Content, user.TargetLanguage, request.AgentId);
-            var grammar = await CheckGrammarAsync(message.Content, request.AgentId);
+            userMessage.GrammarErrors = await CheckGrammarAsync(request.Content, request.AgentId);
+            await CreateAsync(userMessage);
 
-            message.TranslatedContent = translated;
-            message.GrammarErrors = grammar;
+            // AI cevabını al
+            var aiResponseText = await GetAIResponseAsync(request.Content, user.TargetLanguage, request.AgentId);
 
-            await CreateAsync(message);
-            return _mapper.Map<MessageDto>(message);
+            var aiMessage = new Message
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                ConversationId = userMessage.ConversationId,
+                Role = "assistant",
+                Content = aiResponseText,
+                CreatedAt = DateTime.UtcNow,
+                SpeakerType = "assistant",
+                GrammarErrors = new List<string>(),
+                TranslatedContent = ""
+            };
+
+            await CreateAsync(aiMessage);
+
+            return _mapper.Map<MessageDto>(aiMessage);
         }
         public async Task<IEnumerable<MessageDto>> GetMessagesByConversationIdAsync(string conversationId)
         {
@@ -208,6 +222,31 @@ namespace SesliDil.Service.Services
         {
             using var client = new HttpClient();
             return await client.GetByteArrayAsync(audioUrl);
+        }
+        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId)
+        {
+            var agent = await _agentRepository.GetByIdAsync(agentId);
+            if (agent == null || !agent.IsActive)
+                throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
+
+            var prompt = $"{agent.AgentPrompt}\nUser: {userInput}\nRespond in {targetLanguage}:";
+
+            var requestBody = new
+            {
+                message = prompt,
+                model = "command-r",
+                temperature = 0.7
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.ai/v1/chat");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
+            request.Content = JsonContent.Create(requestBody);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<CohereChatResponse>();
+            return result?.Text ?? "";
         }
     }
 }

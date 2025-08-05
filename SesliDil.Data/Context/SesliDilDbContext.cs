@@ -100,8 +100,8 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.UserId).IsRequired().HasMaxLength(36);
                 entity.Property(e => e.AgentId).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Title).HasMaxLength(200);
-                entity.Property(e => e.Message).HasMaxLength(4000);
-                entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+                //entity.Property(e => e.Message).HasMaxLength(4000);
+                //entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.Language).IsRequired().HasMaxLength(10);
                 entity.Property(e => e.StartedAt).IsRequired();
                 entity.Property(e => e.CreatedAt).IsRequired();
