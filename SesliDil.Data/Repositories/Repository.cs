@@ -2,11 +2,12 @@
 using SesliDil.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SesliDil.Data.Repositories
 {
-    public class Repository<T> : IRepository<T> where T : class
+    public class Repository<T> where T : class
     {
         private readonly SesliDilDbContext _context;
         private readonly DbSet<T> _dbSet;
@@ -37,6 +38,12 @@ namespace SesliDil.Data.Repositories
             _dbSet.Update(entity);
         }
 
+        public async Task UpdateAsync(T entity)
+        {
+            _dbSet.Update(entity);
+            await _context.SaveChangesAsync();
+        }
+
         public void Delete(T entity)
         {
             _dbSet.Remove(entity);
@@ -51,6 +58,5 @@ namespace SesliDil.Data.Repositories
         {
             return _dbSet.AsQueryable();
         }
-
     }
 }
