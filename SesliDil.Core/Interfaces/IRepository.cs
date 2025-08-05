@@ -14,8 +14,9 @@ namespace SesliDil.Core.Interfaces
         Task AddAsync(T entity);
         void Update(T entity);
         void Delete(T entity);
-        Task<int> SaveChangesAsync(); 
+        Task<int> SaveChangesAsync();
         IQueryable<T> Query();
         Task UpdateAsync(Conversation conversation);
+        Task UpdateAsync(T entity);
     }
 }
