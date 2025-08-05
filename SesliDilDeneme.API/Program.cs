@@ -7,7 +7,6 @@ using SesliDil.Core.Interfaces;
 using SesliDil.Data.Repositories;
 using SesliDil.Core.Mappings;
 using SesliDil.Service.Services;
-using SesliDil.Core.Entities;
 using SesliDil.Service.Interfaces;
 using FluentValidation.AspNetCore;
 using SesliDilDeneme.API.Validators;
@@ -42,12 +41,16 @@ builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
 
 // FluentValidation
-builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<UserValidator>());
-builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<ProgressValidator>());
-builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<MessageValidator>());
-builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<FileStorageValidator>());
-builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<ConversationValidator>());
-builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<AIAgentValidator>());
+builder.Services.AddControllers()
+    .AddFluentValidation(fv =>
+    {
+        fv.RegisterValidatorsFromAssemblyContaining<UserValidator>();
+        fv.RegisterValidatorsFromAssemblyContaining<ProgressValidator>();
+        fv.RegisterValidatorsFromAssemblyContaining<MessageValidator>();
+        fv.RegisterValidatorsFromAssemblyContaining<FileStorageValidator>();
+        fv.RegisterValidatorsFromAssemblyContaining<ConversationValidator>();
+        fv.RegisterValidatorsFromAssemblyContaining<AIAgentValidator>();
+    });
 
 // JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -68,22 +71,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
-
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
- if (app.Environment.IsDevelopment())
- {
-     app.UseSwagger();
-     app.UseSwaggerUI();
- }
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Otomatik migration
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SesliDilDbContext>();
-    db.Database.Migrate(); 
+    db.Database.Migrate();
 }
+
 app.UseHttpsRedirection();
+
 app.UseRouting();
 
 app.UseAuthentication(); // ÖNCE Authentication
