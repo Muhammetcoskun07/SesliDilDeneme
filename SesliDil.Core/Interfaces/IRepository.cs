@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SesliDil.Core.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,5 +16,6 @@ namespace SesliDil.Core.Interfaces
         void Delete(T entity);
         Task<int> SaveChangesAsync(); 
         IQueryable<T> Query();
+        Task UpdateAsync(Conversation conversation);
     }
 }

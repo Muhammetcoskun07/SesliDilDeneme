@@ -14,20 +14,23 @@ namespace SesliDilDeneme.API.Controllers
         {
             _conversationService = conversationService;
         }
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ConversationDto>>> GetAll()
         {
             var conversations = await _conversationService.GetAllAsync();
             return Ok(conversations);
         }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<ConversationDto>> GetById(string id)
         {
-            if(string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null) return NotFound();
             return Ok(conversation);
         }
+
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<IEnumerable<ConversationDto>>> GetByUserId(string userId)
         {
@@ -35,10 +38,12 @@ namespace SesliDilDeneme.API.Controllers
             var conversations = await _conversationService.GetByUserIdAsync(userId);
             return Ok(conversations);
         }
+
         [HttpPost]
         public async Task<ActionResult<ConversationDto>> Create([FromBody] ConversationDto conversationDto)
         {
             if (conversationDto == null) return BadRequest("Invalid conversation data");
+
             var conversation = new Conversation
             {
                 ConversationId = Guid.NewGuid().ToString(),
@@ -52,13 +57,16 @@ namespace SesliDilDeneme.API.Controllers
                 CreatedAt = DateTime.UtcNow,
                 LastUpdated = DateTime.UtcNow
             };
+
             await _conversationService.CreateAsync(conversation);
             return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, conversation);
         }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] ConversationDto conversationDto)
         {
             if (string.IsNullOrEmpty(id) || conversationDto == null) return BadRequest("Invalid input");
+
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null) return NotFound();
 
@@ -73,10 +81,12 @@ namespace SesliDilDeneme.API.Controllers
             await _conversationService.UpdateAsync(conversation);
             return NoContent();
         }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
             if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null) return NotFound();
 
@@ -84,5 +94,25 @@ namespace SesliDilDeneme.API.Controllers
             return NoContent();
         }
 
+        //  Summary Get
+        [HttpGet("{id}/summary")]
+        public async Task<ActionResult<ConversationSummaryDto>> GetSummary(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+
+            var summary = await _conversationService.GetSummaryByConversationIdAsync(id);
+            return Ok(summary);
+        }
+
+        //  Summary Save
+        [HttpPost("{id}/summary")]
+        public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
+        {
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(summary))
+                return BadRequest("Invalid input");
+
+            await _conversationService.SaveSummaryAsync(id, summary);
+            return NoContent();
+        }
     }
 }
