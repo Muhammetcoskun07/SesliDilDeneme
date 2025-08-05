@@ -14,6 +14,7 @@ namespace SesliDilDeneme.API.Controllers
         {
             _conversationService = conversationService;
         }
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ConversationDto>>> GetAll()
         {
@@ -23,11 +24,12 @@ namespace SesliDilDeneme.API.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<ConversationDto>> GetById(string id)
         {
-            if(string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null) return NotFound();
             return Ok(conversation);
         }
+
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<IEnumerable<ConversationDto>>> GetByUserId(string userId)
         {
@@ -50,7 +52,7 @@ namespace SesliDilDeneme.API.Controllers
                 Language = conversationDto.Language,
                 StartedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
-                LastUpdated = DateTime.UtcNow
+                DurationMinutes = null // Başlangıçta süre null
             };
             await _conversationService.CreateAsync(conversation);
             return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, conversation);
@@ -68,7 +70,7 @@ namespace SesliDilDeneme.API.Controllers
             conversation.Message = conversationDto.Message;
             conversation.Status = conversationDto.Status;
             conversation.Language = conversationDto.Language;
-            conversation.LastUpdated = DateTime.UtcNow;
+            conversation.DurationMinutes = conversationDto.DurationMinutes; // Süre istemciden gelebilir
 
             await _conversationService.UpdateAsync(conversation);
             return NoContent();
@@ -82,6 +84,14 @@ namespace SesliDilDeneme.API.Controllers
 
             await _conversationService.DeleteAsync(conversation);
             return NoContent();
+        }
+        [HttpGet("{id}/duration")]
+        public async Task<ActionResult<double>> GetDuration(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            var conversation = await _conversationService.GetByIdAsync<string>(id);
+            if (conversation == null) return NotFound();
+            return Ok(conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes);
         }
 
     }

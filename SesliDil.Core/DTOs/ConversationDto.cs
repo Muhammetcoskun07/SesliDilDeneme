@@ -17,7 +17,7 @@ namespace SesliDil.Core.DTOs
         public string Language { get; set; }
         public DateTime StartedAt { get; set; }
         public DateTime CreatedAt { get; set; }
-        public DateTime LastUpdated { get; set; }
+        public double? DurationMinutes { get; set; }
     }
 
 }

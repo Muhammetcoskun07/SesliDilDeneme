@@ -30,5 +30,15 @@ namespace SesliDil.Service.Services
             return _mapper.Map<IEnumerable<ConversationDto>>(userConversations);
 
         }
+        public async Task EndConversationAsync(string conversationId)
+        {
+            var conversation = await GetByIdAsync<string>(conversationId);
+            if (conversation == null)
+                throw new ArgumentException("Conversation not found");
+
+            var duration = DateTime.UtcNow - conversation.StartedAt;
+            conversation.DurationMinutes = duration.TotalMinutes;
+            await UpdateAsync(conversation);
         }
+    }
 }
