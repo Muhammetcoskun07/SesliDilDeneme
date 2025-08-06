@@ -48,14 +48,34 @@ namespace SesliDilDeneme.API.Controllers
                 var user = await _userService.GetOrCreateBySocialAsync("google", socialId, email, firstName, lastName);
                 if (user == null) return Unauthorized("User creation failed");
 
+                // 🔐 JWT Token üretimi
+                var accessToken = GenerateJwtToken(user); // Bu zaten var
+                var refreshToken = Guid.NewGuid().ToString(); // Veya başka bir yöntemle üret
+                var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(30);
+                var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
+
+                // 🆕 Session'ı Access/Refresh token'larla oluştur
                 await _sessionService.CreateAsync(new Session
                 {
+                    SessionId = Guid.NewGuid().ToString(),
                     UserId = user.UserId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    AccessTokenExpiresAt = accessTokenExpiresAt,
+                    RefreshTokenExpiresAt = refreshTokenExpiresAt
                 });
 
-                var jwtToken = GenerateJwtToken(user);
-                return Ok(new { Token = jwtToken, UserId = user.UserId, HasCompletedOnboarding = user.HasCompletedOnboarding });
+                // ✅ Geri dön
+                return Ok(new
+                {
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    AccessTokenExpiresAt = accessTokenExpiresAt,
+                    RefreshTokenExpiresAt = refreshTokenExpiresAt,
+                    UserId = user.UserId,
+                    HasCompletedOnboarding = user.HasCompletedOnboarding
+                });
             }
             catch (DbUpdateException ex)
             {
@@ -73,6 +93,7 @@ namespace SesliDilDeneme.API.Controllers
                 return StatusCode(500, new { message = "Internal server error", error = ex.Message });
             }
         }
+
 
         [HttpPost("logout")]
         public IActionResult Logout()
@@ -196,6 +217,8 @@ namespace SesliDilDeneme.API.Controllers
             }
         }
 
+
+
         private string GenerateJwtToken(User user)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
@@ -218,5 +241,35 @@ namespace SesliDilDeneme.API.Controllers
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
+        {
+            var session = await _sessionService.GetByRefreshTokenAsync(refreshToken);
+
+            if (session == null || session.RefreshTokenExpiresAt < DateTime.UtcNow)
+                return Unauthorized("Refresh token geçersiz veya süresi dolmuş.");
+
+            var user = await _userService.GetByIdAsync(session.UserId);
+            if (user == null)
+                return Unauthorized("Kullanıcı bulunamadı.");
+
+            var newAccessToken = GenerateJwtToken(user);
+            var newAccessExp = DateTime.UtcNow.AddMinutes(30);
+
+            session.AccessToken = newAccessToken;
+            session.AccessTokenExpiresAt = newAccessExp;
+            await _sessionService.UpdateAsync(session);
+
+            return Ok(new
+            {
+                AccessToken = newAccessToken,
+                AccessTokenExpiresAt = newAccessExp,
+                RefreshToken = session.RefreshToken,
+                RefreshTokenExpiresAt = session.RefreshTokenExpiresAt,
+                UserId = user.UserId
+            });
+        }
+
     }
 }
