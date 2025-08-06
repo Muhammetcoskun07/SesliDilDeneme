@@ -32,7 +32,6 @@ namespace SesliDil.Service.Services
             IRepository<User> userRepository,
             IRepository<AIAgent> agentRepository)
             : base(messageRepository, mapper)
-
         {
             _userRepository = userRepository;
             _messageRepository = messageRepository;
@@ -41,16 +40,16 @@ namespace SesliDil.Service.Services
             _configuration = configuration;
             _agentRepository = agentRepository;
 
-            _httpClient.BaseAddress = new Uri("https://api.cohere.ai/v1/");
+            _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
             _httpClient.DefaultRequestHeaders.Authorization =
-    new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
+                new AuthenticationHeaderValue("Bearer", _configuration["OpenAI:ApiKey"]);
         }
+
         public async Task<MessageDto> SendMessageAsync(SendMessageRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.AgentId))
                 throw new ArgumentException("Invalid input");
 
-            // Kullanıcıyı al
             var user = await _userRepository.GetByIdAsync(request.UserId);
             if (user == null)
                 throw new ArgumentException("User not found");
@@ -58,7 +57,6 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(user.TargetLanguage))
                 throw new ArgumentException("User's target language is not specified");
 
-            // Kullanıcı mesajı
             var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -74,7 +72,6 @@ namespace SesliDil.Service.Services
             userMessage.GrammarErrors = await CheckGrammarAsync(request.Content, request.AgentId);
             await CreateAsync(userMessage);
 
-            // AI cevabını al
             var aiResponseText = await GetAIResponseAsync(request.Content, user.TargetLanguage, request.AgentId);
 
             var aiMessage = new Message
@@ -93,6 +90,7 @@ namespace SesliDil.Service.Services
 
             return _mapper.Map<MessageDto>(aiMessage);
         }
+
         public async Task<IEnumerable<MessageDto>> GetMessagesByConversationIdAsync(string conversationId)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
@@ -122,7 +120,6 @@ namespace SesliDil.Service.Services
             await CreateAsync(message);
             return _mapper.Map<MessageDto>(message);
         }
-  
 
         public async Task<string> GenerateSpeechAsync(string text)
         {
@@ -136,7 +133,6 @@ namespace SesliDil.Service.Services
             var response = await _httpClient.PostAsJsonAsync("audio/speech", requestBody);
             response.EnsureSuccessStatusCode();
 
-            // TODO: Gerçek ses dosyası yüklemesi (örnek S3) yapılmalı
             var audioStream = await response.Content.ReadAsStreamAsync();
             return "https://your-storage-bucket/speech.mp3";
         }
@@ -147,7 +143,8 @@ namespace SesliDil.Service.Services
 
             using var content = new MultipartFormDataContent
             {
-                { new StreamContent(new MemoryStream(audioContent)), "file", "audio.mp3" }
+                { new StreamContent(new MemoryStream(audioContent)), "file", "audio.mp3" },
+                { new StringContent("whisper-1"), "model" }
             };
 
             var response = await _httpClient.PostAsync("audio/transcriptions", content);
@@ -165,25 +162,26 @@ namespace SesliDil.Service.Services
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
 
-            var prompt = $"{agent.AgentPrompt}\nNow translate the following into {targetLanguage}:\n{text}";
+            var prompt = $"{agent.AgentPrompt}\nTranslate the following into {targetLanguage}:\n{text}";
 
             var requestBody = new
             {
-                message = prompt,
-                model = "command-r", // veya "command-r-plus" (ücretli)
+                model = "gpt-4o",
+                messages = new[]
+                {
+                    new { role = "system", content = "You are a helpful translator." },
+                    new { role = "user", content = prompt }
+                },
                 temperature = 0.5
             };
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.ai/v1/chat");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
-            request.Content = JsonContent.Create(requestBody);
-
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
             response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<CohereChatResponse>();
-            return result?.Text ?? "";
+            var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
+            return result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
         }
+
         public async Task<List<string>> CheckGrammarAsync(string text, string agentId)
         {
             if (string.IsNullOrEmpty(text)) return new List<string>();
@@ -196,20 +194,20 @@ namespace SesliDil.Service.Services
 
             var requestBody = new
             {
-                message = prompt,
-                model = "command-r",
+                model = "gpt-4o",
+                messages = new[]
+                {
+                    new { role = "system", content = "You are a grammar checking assistant." },
+                    new { role = "user", content = prompt }
+                },
                 temperature = 0.2
             };
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.ai/v1/chat");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
-            request.Content = JsonContent.Create(requestBody);
-
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
             response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<CohereChatResponse>();
-            var errorsText = result?.Text ?? "";
+            var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
+            var errorsText = result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
 
             var errors = errorsText
                 .Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries)
@@ -218,11 +216,13 @@ namespace SesliDil.Service.Services
 
             return errors;
         }
+
         private async Task<byte[]> DownloadAudioAsync(string audioUrl)
         {
             using var client = new HttpClient();
             return await client.GetByteArrayAsync(audioUrl);
         }
+
         public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId)
         {
             var agent = await _agentRepository.GetByIdAsync(agentId);
@@ -233,20 +233,23 @@ namespace SesliDil.Service.Services
 
             var requestBody = new
             {
-                message = prompt,
-                model = "command-r",
+                model = "gpt-4o",
+                messages = new[]
+                {
+                    new { role = "system", content = "You are a helpful assistant." },
+                    new { role = "user", content = prompt }
+                },
                 temperature = 0.7
             };
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.cohere.ai/v1/chat");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _configuration["Cohere:ApiKey"]);
-            request.Content = JsonContent.Create(requestBody);
-
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
             response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<CohereChatResponse>();
-            return result?.Text ?? "";
+            var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
+            return result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
         }
     }
+
+    
+   
 }
