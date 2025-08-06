@@ -122,7 +122,19 @@ namespace SesliDilDeneme.API.Controllers
 
             return Ok(response);
         }
+        [HttpGet("{messageId}/grammar-errors")]
+        public async Task<IActionResult> GetGrammarErrors(string messageId)
+        {
+            if (string.IsNullOrWhiteSpace(messageId))
+                return BadRequest("MessageId is required.");
 
+            var message = await _messageService.GetByIdAsync(messageId);
+
+            if (message == null)
+                return NotFound("Message not found.");
+
+            return Ok(message.GrammarErrors);
+        }
 
 
     }
