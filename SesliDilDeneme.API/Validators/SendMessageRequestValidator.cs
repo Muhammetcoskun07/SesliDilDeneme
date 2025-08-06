@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using SesliDil.Core.DTOs;
 
 namespace SesliDilDeneme.API.Validators
 {
