@@ -37,22 +37,24 @@ namespace SesliDilDeneme.API.Validators
         
          private bool BeValidLanguage(string language)
         {
-            var validLanguages = new[] { "English", "German", "French", "Spanish", "Italian" };
+            var validLanguages = new[] { "Turkish","English", "German", "French", "Spanish", "Italian" };
             return language != null && validLanguages.Contains(language);
         }
         private bool BeValidAgeRange(string ageRange)
         {
-            var validAgeRanges = new[] { "18-24", "25-29", "30-35", "36-40", "41+" };
+            var validAgeRanges = new[] { "13-17", "18-29", "30-44", "45-54", "55-64", "65 and over" };
             return ageRange != null && validAgeRanges.Contains(ageRange);
         }
         private bool BeValidProficiencyLevel(string level)
         {
-            var validLevels = new[] { "A1", "A2", "B1", "B2", "C1", "C2" };
+            var validLevels = new[] { "A1  I know basic words and simple phrases", "A2  I can carry on basic conversations",
+                "B1  I know basic words and simple phrases", "B2  I can discuss various topics with ease",
+                "C1  I speak confidently in complex situations", "C2  I speak like a native in all contexts" };
             return level != null && validLevels.Contains(level);
         }
         private bool BeValidImprovementGoals(string[] goals)
         {
-            var validGoals = new[] { "Traveling", "Daily talk", "Career growth", "Academic purposes" };
+            var validGoals = new[] { "Travelling", "Daily talk", "Career growth", "Academic purposes" };
             return goals != null && goals.All(g => validGoals.Contains(g));
         }
         private bool BeValidTopicInterests(string[] interests)
@@ -64,7 +66,7 @@ namespace SesliDilDeneme.API.Validators
         }
         private bool BeValidWeeklySpeakingGoal(string goal)
         {
-            var validGoals = new[] { "5-10 minutes a day", "15-20 minutes a day", "30 minutes a day", "45 minutes a day" };
+            var validGoals = new[] { "5-10 minutes a day", "15-20 minutes a day", "30 minutes a day", "45+ minutes a day" };
             return goal != null && validGoals.Contains(goal);
         }
         private bool BeValidLearningGoals(string[] goals)

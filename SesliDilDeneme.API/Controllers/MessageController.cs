@@ -96,25 +96,16 @@ namespace SesliDilDeneme.API.Controllers
             return NoContent();
         }
         [HttpPost("send")]
-        public async Task<ActionResult<MessageDto>> SendMessage([FromBody] SendMessageRequest request)
+        public async Task<ActionResult<MessageDto>> Send([FromBody] SendMessageRequest request)
         {
             try
             {
-                var message = await _messageService.SendMessageAsync(request);
-                return Ok(message);
-            }
-            catch (ValidationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
+                var response = await _messageService.SendMessageAsync(request);
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                // Loglama yapılabilir
-                return StatusCode(500, "An error occurred while processing the request");
+                return StatusCode(500, $"Error: {ex.Message}");
             }
         }
         [HttpGet("translated")]

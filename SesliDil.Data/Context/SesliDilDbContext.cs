@@ -38,8 +38,8 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.LastName).HasMaxLength(100).IsRequired();
                 entity.Property(e => e.NativeLanguage).HasMaxLength(10); // Zorunlu
                 entity.Property(e => e.TargetLanguage).HasMaxLength(10);
-                entity.Property(e => e.ProficiencyLevel).HasMaxLength(2);
-                entity.Property(e => e.AgeRange).HasMaxLength(5);
+                entity.Property(e => e.ProficiencyLevel).HasMaxLength(100);
+                entity.Property(e => e.AgeRange).HasMaxLength(50);
                 entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.LastLoginAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.LearningGoals).HasColumnType("jsonb"); // PostgreSQL için
@@ -100,12 +100,13 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.UserId).IsRequired().HasMaxLength(36);
                 entity.Property(e => e.AgentId).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Title).HasMaxLength(200);
-                entity.Property(e => e.Message).HasMaxLength(4000);
-                entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+                //entity.Property(e => e.Message).HasMaxLength(4000);
+                //entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.Language).IsRequired().HasMaxLength(10);
                 entity.Property(e => e.StartedAt).IsRequired();
                 entity.Property(e => e.CreatedAt).IsRequired();
-                entity.Property(e => e.LastUpdated).IsRequired();
+                entity.Property(e => e.Summary).HasMaxLength(1000);
+                entity.Property(e => e.DurationMinutes);
                 entity.HasOne(e => e.Agent).WithMany().HasForeignKey(e => e.AgentId);
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
             });

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
+using SesliDil.Service.Interfaces;
 using SesliDil.Service.Services;
 
 namespace SesliDilDeneme.API.Controllers
@@ -10,9 +11,12 @@ namespace SesliDilDeneme.API.Controllers
     public class ConversationsController : ControllerBase
     {
         private readonly ConversationService _conversationService;
-        public ConversationsController(ConversationService conversationService)
+        private readonly UserService _userService;
+
+        public ConversationsController(ConversationService conversationService, UserService userService)
         {
             _conversationService = conversationService;
+            _userService = userService;
         }
 
         [HttpGet]
@@ -26,8 +30,10 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<ActionResult<ConversationDto>> GetById(string id)
         {
             if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null) return NotFound();
+
             return Ok(conversation);
         }
 
@@ -35,6 +41,7 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<ActionResult<IEnumerable<ConversationDto>>> GetByUserId(string userId)
         {
             if (string.IsNullOrEmpty(userId)) return BadRequest("Invalid userId");
+
             var conversations = await _conversationService.GetByUserIdAsync(userId);
             return Ok(conversations);
         }
@@ -42,7 +49,12 @@ namespace SesliDilDeneme.API.Controllers
         [HttpPost]
         public async Task<ActionResult<ConversationDto>> Create([FromBody] ConversationDto conversationDto)
         {
-            if (conversationDto == null) return BadRequest("Invalid conversation data");
+            if (conversationDto == null || string.IsNullOrEmpty(conversationDto.UserId))
+                return BadRequest("Invalid conversation data");
+
+            var user = await _userService.GetByIdAsync(conversationDto.UserId);
+            if (user == null)
+                return BadRequest("User not found");
 
             var conversation = new Conversation
             {
@@ -50,12 +62,11 @@ namespace SesliDilDeneme.API.Controllers
                 UserId = conversationDto.UserId,
                 AgentId = conversationDto.AgentId,
                 Title = conversationDto.Title,
-                Message = conversationDto.Message,
-                Status = conversationDto.Status,
-                Language = conversationDto.Language,
+                //Status = conversationDto.Status,
+                Language = user.TargetLanguage,
                 StartedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
-                LastUpdated = DateTime.UtcNow
+                DurationMinutes = null
             };
 
             await _conversationService.CreateAsync(conversation);
@@ -65,18 +76,21 @@ namespace SesliDilDeneme.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] ConversationDto conversationDto)
         {
-            if (string.IsNullOrEmpty(id) || conversationDto == null) return BadRequest("Invalid input");
+            if (string.IsNullOrEmpty(id) || conversationDto == null)
+                return BadRequest("Invalid input");
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null) return NotFound();
 
+            var user = await _userService.GetByIdAsync(conversationDto.UserId);
+            if (user == null) return BadRequest("User not found");
+
             conversation.UserId = conversationDto.UserId;
             conversation.AgentId = conversationDto.AgentId;
             conversation.Title = conversationDto.Title;
-            conversation.Message = conversationDto.Message;
-            conversation.Status = conversationDto.Status;
-            conversation.Language = conversationDto.Language;
-            conversation.LastUpdated = DateTime.UtcNow;
+           // conversation.Status = conversationDto.Status;
+            conversation.Language = user.TargetLanguage; // Güncelleme sırasında da kullanıcıdan alınmalı
+            conversation.DurationMinutes = conversationDto.DurationMinutes;
 
             await _conversationService.UpdateAsync(conversation);
             return NoContent();
@@ -92,6 +106,17 @@ namespace SesliDilDeneme.API.Controllers
 
             await _conversationService.DeleteAsync(conversation);
             return NoContent();
+        }
+
+        [HttpGet("{id}/duration")]
+        public async Task<ActionResult<double>> GetDuration(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+
+            var conversation = await _conversationService.GetByIdAsync<string>(id);
+            if (conversation == null) return NotFound();
+
+            return Ok(conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes);
         }
 
         //  Summary Get

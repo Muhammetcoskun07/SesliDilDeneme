@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SesliDil.Data.Context;
@@ -13,9 +14,11 @@ using SesliDil.Data.Context;
 namespace SesliDil.Data.Migrations
 {
     [DbContext(typeof(SesliDilDbContext))]
-    partial class SesliDilDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250805080623_updateconversation")]
+    partial class updateconversation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -82,12 +85,18 @@ namespace SesliDil.Data.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Summary")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -261,8 +270,8 @@ namespace SesliDil.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("AgeRange")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<DateTime?>("CreatedAt")
                         .IsRequired()
@@ -306,8 +315,8 @@ namespace SesliDil.Data.Migrations
                         .HasColumnType("character varying(10)");
 
                     b.Property<string>("ProficiencyLevel")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
 
                     b.Property<string>("SocialId")
                         .IsRequired()

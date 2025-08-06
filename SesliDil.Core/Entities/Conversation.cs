@@ -12,16 +12,18 @@ namespace SesliDil.Core.Entities
         public string UserId { get; set; } // UUID, foreign key to User
         public string AgentId { get; set; } // VARCHAR(50)
         public string Title { get; set; }
-        public string Message { get; set; }
+       
+        
         public string? Summary { get; set; }
-        public string Status { get; set; } // ENUM: active, completed, paused, abandoned
-        public string Language { get; set; } // ISO 639-1
+       
+        public string Language { get; set; } 
         public DateTime StartedAt { get; set; }
         public DateTime CreatedAt { get; set; }
-        public DateTime LastUpdated { get; set; }
+        
+        public double? DurationMinutes { get; set; }
 
         public AIAgent Agent { get; set; }
-        public User User { get; set; } // Navigation property
+        public User User { get; set; } 
         public ICollection<Message> Messages { get; set; }
         public ICollection<FileStorage> Files { get; set; }
     }

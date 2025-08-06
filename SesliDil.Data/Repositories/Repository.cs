@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SesliDil.Core.Entities;
 
 namespace SesliDil.Data.Repositories
 {
-    public class Repository<T> where T : class
+    public class Repository<T> : IRepository<T> where T : class
     {
         private readonly SesliDilDbContext _context;
         private readonly DbSet<T> _dbSet;
@@ -57,6 +58,11 @@ namespace SesliDil.Data.Repositories
         public IQueryable<T> Query()
         {
             return _dbSet.AsQueryable();
+        }
+
+        public Task UpdateAsync(Conversation conversation)
+        {
+            throw new NotImplementedException();
         }
     }
 }

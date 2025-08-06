@@ -61,8 +61,18 @@ namespace SesliDil.Service.Services
                 throw new Exception("Conversation not found");
 
             conversation.Summary = summary;
-            conversation.LastUpdated = DateTime.UtcNow;
+           
             await _conversationRepository.UpdateAsync(conversation);
+        }
+        public async Task EndConversationAsync(string conversationId)
+        {
+            var conversation = await GetByIdAsync<string>(conversationId);
+            if (conversation == null)
+                throw new ArgumentException("Conversation not found");
+
+            var duration = DateTime.UtcNow - conversation.StartedAt;
+            conversation.DurationMinutes = duration.TotalMinutes;
+            await UpdateAsync(conversation);
         }
     }
 }
