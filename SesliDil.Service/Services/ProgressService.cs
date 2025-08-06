@@ -68,6 +68,15 @@ namespace SesliDil.Service.Services
 
             return _mapper.Map<ProgressDto>(progress);
         }
+        public async Task<Progress> GetSingleByUserIdAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new ArgumentNullException("Invalid UserId", nameof(userId));
+
+            var progresses = await _progressRepository.GetAllAsync();
+            var userProgress = progresses.FirstOrDefault(p => p.UserId == userId);
+            return userProgress;
+        }
 
         private string DetermineLevel(int totalMinutes)
         {

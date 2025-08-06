@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
+using SesliDil.Core.Interfaces;
 using SesliDil.Service.Services;
 using System.Security.Claims;
 using System.Text.Json;
@@ -14,10 +15,14 @@ namespace SesliDilDeneme.API.Controllers
     public class UserController : ControllerBase
     {
         private readonly UserService _userService;
+        private readonly ProgressService _progressService;
+        private readonly IRepository<Progress> _progressRepository;
 
-        public UserController(UserService userService)
+        public UserController(UserService userService, ProgressService progressService,IRepository<Progress> progressRepository)
         {
             _userService = userService;
+            _progressService = progressService;
+            _progressRepository = progressRepository;
         }
 
         [HttpGet]
@@ -151,37 +156,74 @@ namespace SesliDilDeneme.API.Controllers
         {
             try
             {
+                // Giriş verilerini kontrol et
                 if (onboardingDto == null)
-                    return BadRequest("Invalid onboarding data");
+                    return BadRequest("Geçersiz onboarding verileri");
 
+            
+
+                // Kullanıcıyı bul
                 var user = await _userService.GetByIdAsync<string>(userId);
                 if (user == null)
-                    return NotFound();
+                    return NotFound("Kullanıcı bulunamadı");
 
+                // Kullanıcı bilgilerini güncelle
                 user.NativeLanguage = onboardingDto.NativeLanguage;
                 user.TargetLanguage = onboardingDto.TargetLanguage;
                 user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
                 user.AgeRange = onboardingDto.AgeRange;
                 user.HasCompletedOnboarding = onboardingDto.HasCompletedOnboarding;
-
                 user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.LearningGoals ?? Array.Empty<string>()));
                 user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
                 user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
-
                 user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
+                user.LastLoginAt = DateTime.UtcNow; // Son giriş zamanını güncelle
 
-                await _userService.UpdateAsync(user);
+                // Progress tablosunu işle
+                var progress = await _progressService.GetSingleByUserIdAsync(userId);
+                if (progress == null)
+                {
+                    // Yeni Progress kaydı oluştur
+                    progress = new Progress
+                    {
+                        ProgressId = Guid.NewGuid().ToString(), // UUID üret
+                        UserId = userId,
+                        CurrentLevel = user.ProficiencyLevel ?? "A1", // Varsayılan A1, eğer ProficiencyLevel null ise
+                        DailyConversationCount = 0,
+                        TotalConversationTimeMinutes = 0,
+                        CurrentStreakDays = 0,
+                        LongestStreakDays = 0,
+                        LastConversationDate = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _progressRepository.AddAsync(progress);
+                }
+                else
+                {
+                    // Mevcut Progress kaydını güncelle
+                    progress.CurrentLevel = user.ProficiencyLevel ?? "A1"; // Varsayılan A1
+                    progress.UpdatedAt = DateTime.UtcNow;
+                    _progressRepository.Update(progress);
+                }
 
-                return Ok("Onboarding bilgileri kaydedildi.");
+                // Tüm değişiklikleri kaydet
+
+                return Ok("Onboarding bilgileri ve ilerleme kaydedildi.");
+            }
+            catch (DbUpdateException ex)
+            {
+                // Veritabanı hatalarını logla
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                Console.WriteLine($"[ONBOARDING HATASI]: {ex.Message}, İç Hata: {innerException}");
+                return StatusCode(500, $"Sunucu hatası: {innerException}");
             }
             catch (Exception ex)
             {
-                // Logger varsa logla
-                Console.WriteLine($"[ONBOARDING ERROR]: {ex.Message}");
+                // Genel hataları logla
+                Console.WriteLine($"[ONBOARDING HATASI]: {ex.Message}");
                 return StatusCode(500, $"Sunucu hatası: {ex.Message}");
             }
         }
-
         [HttpDelete("{id}/full-delete")]
         public async Task<IActionResult> DeleteUserCompletely(string id)
         {

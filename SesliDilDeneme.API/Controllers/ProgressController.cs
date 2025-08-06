@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.DTOs;
-using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
 
 namespace SesliDilDeneme.API.Controllers
@@ -40,7 +40,7 @@ namespace SesliDilDeneme.API.Controllers
         {
             if (progressDto == null || string.IsNullOrEmpty(progressDto.UserId))
                 return BadRequest("Invalid progress data");
-            var progress = new Progress
+            var progress = new SesliDil.Core.Entities.Progress
             {
                 ProgressId = Guid.NewGuid().ToString(),
                 UserId = progressDto.UserId,
@@ -86,3 +86,6 @@ namespace SesliDilDeneme.API.Controllers
         }
     }
 }
+
+
+
