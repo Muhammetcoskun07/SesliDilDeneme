@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
@@ -44,29 +45,21 @@ namespace SesliDil.Service.Services
             if (conversation == null)
                 throw new Exception("Conversation not found");
 
-            return new ConversationSummaryDto
-            {
-                ConversationId = conversation.ConversationId,
-                Summary = conversation.Summary
-            };
+            return _mapper.Map<ConversationSummaryDto>(conversation);
+
+  
         }
 
         public async Task SaveSummaryAsync(string conversationId, string summary)
         {
-            if (string.IsNullOrEmpty(conversationId))
-                throw new ArgumentException("Invalid Conversation Id");
+            var conv = await _conversationRepository.GetByIdAsync(conversationId);
+            if (conv == null) throw new Exception("Conversation bulunamadı");
 
-            var conversation = await _conversationRepository.GetByIdAsync(conversationId);
-            if (conversation == null)
-                throw new Exception("Conversation not found");
-
-            //+ Mesaj yoksa patlamasın
-            if (conversation.Messages == null || !conversation.Messages.Any())
-                throw new Exception("Bu konuşma için özet oluşturulamaz çünkü mesaj yok.");
-
-            conversation.Summary = summary;
-            await _conversationRepository.UpdateAsync(conversation);
+            conv.Summary = summary;
+            _conversationRepository.Update(conv);            
+            await _conversationRepository.SaveChangesAsync();
         }
+
 
         public async Task EndConversationAsync(string conversationId)
         {

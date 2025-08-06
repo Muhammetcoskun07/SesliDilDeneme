@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿
+using AutoMapper;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using System;
@@ -35,6 +36,8 @@ namespace SesliDil.Core.Mappings
             CreateMap<Message, MessageDto>().ReverseMap();
             CreateMap<FileStorage, FileStorageDto>().ReverseMap();
             CreateMap<Session, SessionDto>().ReverseMap();
+            CreateMap<Conversation, ConversationSummaryDto>().ReverseMap();
+
         }
 
         private static string[] JsonToArray(JsonDocument? json)

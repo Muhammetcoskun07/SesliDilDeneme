@@ -16,7 +16,7 @@ namespace SesliDil.Core.Entities
         
         public string? Summary { get; set; }
        
-        public string Language { get; set; } 
+        public string? Language { get; set; } 
         public DateTime StartedAt { get; set; }
         public DateTime CreatedAt { get; set; }
         
@@ -24,8 +24,8 @@ namespace SesliDil.Core.Entities
 
         public AIAgent Agent { get; set; }
         public User User { get; set; } 
-        public ICollection<Message> Messages { get; set; }
-        public ICollection<FileStorage> Files { get; set; }
+        public ICollection<Message>? Messages { get; set; }
+        public ICollection<FileStorage>? Files { get; set; }
     }
 
 }

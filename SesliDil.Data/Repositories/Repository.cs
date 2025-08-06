@@ -21,8 +21,12 @@ namespace SesliDil.Data.Repositories
 
         public async Task<T> GetByIdAsync<TId>(TId id)
         {
-            return await _dbSet.FindAsync(id);
+            // Burada "Conversation" için çalışacak, diğer T’ler için de aynı mantık:
+            return await _dbSet
+                .FirstOrDefaultAsync(e => EF.Property<TId>(e, "ConversationId")!.Equals(id));
         }
+
+
 
         public async Task<IEnumerable<T>> GetAllAsync()
         {
@@ -63,6 +67,12 @@ namespace SesliDil.Data.Repositories
         public Task UpdateAsync(Conversation conversation)
         {
             throw new NotImplementedException();
+        }
+        public async Task<Conversation> GetByIdWithMessagesAsync(string id)
+        {
+            return await _context.Conversations
+                                 .Include(c => c.Messages)
+                                 .FirstOrDefaultAsync(c => c.ConversationId == id);
         }
     }
 }

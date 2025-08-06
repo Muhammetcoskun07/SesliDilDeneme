@@ -121,7 +121,7 @@ namespace SesliDilDeneme.API.Controllers
 
         //  Summary Get
         [HttpGet("{id}/summary")]
-        public async Task<ActionResult<ConversationSummaryDto>> GetSummary(string id)
+        public async Task<ActionResult<ConversationSummaryDto>> GetSummary(string id )
         {
             if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
 
@@ -129,15 +129,22 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(summary);
         }
 
-        //  Summary Save
         [HttpPost("{id}/summary")]
         public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
         {
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(summary))
-                return BadRequest("Invalid input");
+                return BadRequest("Geçersiz giriş");
 
-            await _conversationService.SaveSummaryAsync(id, summary);
-            return NoContent();
+            try
+            {
+                await _conversationService.SaveSummaryAsync(id, summary);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                // Hata burada loglanabilir (isteğe bağlı)
+                return StatusCode(500, $"Hata: {ex.Message}"); // Daha açıklayıcı hata mesajı
+            }
         }
     }
 }
