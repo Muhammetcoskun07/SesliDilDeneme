@@ -60,10 +60,14 @@ namespace SesliDil.Service.Services
             if (conversation == null)
                 throw new Exception("Conversation not found");
 
+            //+ Mesaj yoksa patlamasın
+            if (conversation.Messages == null || !conversation.Messages.Any())
+                throw new Exception("Bu konuşma için özet oluşturulamaz çünkü mesaj yok.");
+
             conversation.Summary = summary;
-           
             await _conversationRepository.UpdateAsync(conversation);
         }
+
         public async Task EndConversationAsync(string conversationId)
         {
             var conversation = await GetByIdAsync<string>(conversationId);

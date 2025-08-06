@@ -40,14 +40,10 @@ namespace SesliDil.Data.Migrations
                 oldType: "character varying(10)",
                 oldMaxLength: 10);
 
-            migrationBuilder.AlterColumn<JsonDocument>(
-                name: "LearningGoals",
-                table: "User",
-                type: "jsonb",
-                nullable: true,
-                oldClrType: typeof(string[]),
-                oldType: "text[]",
-                oldNullable: true);
+            migrationBuilder.Sql("UPDATE \"User\" SET \"LearningGoals\" = null;");
+            migrationBuilder.Sql(
+                "ALTER TABLE \"User\" ALTER COLUMN \"LearningGoals\" TYPE jsonb USING to_jsonb(\"LearningGoals\")::jsonb;");
+
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "LastLoginAt",
@@ -58,14 +54,9 @@ namespace SesliDil.Data.Migrations
                 oldClrType: typeof(DateTime),
                 oldType: "timestamp with time zone");
 
-            migrationBuilder.AlterColumn<JsonDocument>(
-                name: "Hobbies",
-                table: "User",
-                type: "jsonb",
-                nullable: true,
-                oldClrType: typeof(string[]),
-                oldType: "text[]",
-                oldNullable: true);
+            migrationBuilder.Sql("UPDATE \"User\" SET \"Hobbies\" = null;");
+            migrationBuilder.Sql("ALTER TABLE \"User\" ALTER COLUMN \"Hobbies\" TYPE jsonb USING to_jsonb(\"Hobbies\")::jsonb;");
+
 
             migrationBuilder.AlterColumn<string>(
                 name: "Email",
