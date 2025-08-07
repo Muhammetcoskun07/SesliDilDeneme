@@ -48,7 +48,7 @@ namespace SesliDil.Service.Services
 
         public async Task<MessageDto> SendMessageAsync(SendMessageRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.AgentId))
+            if (request == null || string.IsNullOrWhiteSpace(request.AgentId))
                 throw new ArgumentException("Invalid input");
 
             var user = await _userRepository.GetByIdAsync(request.UserId);
@@ -58,22 +58,33 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(user.TargetLanguage))
                 throw new ArgumentException("User's target language is not specified");
 
+            string content = request.Content;
+
+            // Ses varsa, sesi yazıya döndür
+            if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(request.AudioUrl))
+            {
+                content = await ConvertSpeechToTextAsync(request.AudioUrl);
+                if (string.IsNullOrWhiteSpace(content))
+                    throw new ArgumentException("Audio could not be converted to text");
+            }
+
             var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
                 ConversationId = request.ConversationId,
                 Role = "user",
-                Content = request.Content,
+                Content = content,
+                AudioUrl = request.AudioUrl,
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "user",
                 GrammarErrors = new List<string>(),
                 TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId) 
             };
 
-            userMessage.GrammarErrors = await CheckGrammarAsync(request.Content, request.AgentId);
+            userMessage.GrammarErrors = await CheckGrammarAsync(content, request.AgentId);
             await CreateAsync(userMessage);
 
-            var aiResponseText = await GetAIResponseAsync(request.Content, user.TargetLanguage, request.AgentId);
+            var aiResponseText = await GetAIResponseAsync(content, user.TargetLanguage, request.AgentId);
 
             var aiMessage = new Message
             {
@@ -84,7 +95,9 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "assistant",
                 GrammarErrors = new List<string>(),
+
                 TranslatedContent = await TranslateAsync(aiResponseText, user.TargetLanguage, request.AgentId) // AI cevabı hedef dilde
+
             };
 
             await CreateAsync(aiMessage);
