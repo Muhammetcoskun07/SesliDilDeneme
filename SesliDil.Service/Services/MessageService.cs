@@ -78,7 +78,8 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "user",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(content, user.TargetLanguage, request.AgentId)
+                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId) // Burada nativeLanguage kullanılıyor
+
             };
 
             userMessage.GrammarErrors = await CheckGrammarAsync(content, request.AgentId);
@@ -95,7 +96,9 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "assistant",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(aiResponseText, user.TargetLanguage, request.AgentId)
+
+                TranslatedContent = await TranslateAsync(aiResponseText, user.TargetLanguage, request.AgentId) // AI cevabı hedef dilde
+
             };
 
             await CreateAsync(aiMessage);
@@ -132,6 +135,9 @@ namespace SesliDil.Service.Services
             await CreateAsync(message);
             return _mapper.Map<MessageDto>(message);
         }
+
+
+
 
         public async Task<string> GenerateSpeechAsync(string text)
         {
@@ -240,7 +246,7 @@ namespace SesliDil.Service.Services
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
 
-            var prompt = $"{agent.AgentPrompt}\nUser: {userInput}\nRespond in {targetLanguage}:";
+            var prompt = $"{agent.AgentPrompt}\nUser: {userInput}\nPlease respond only in {targetLanguage}, with relevant and helpful information.";
 
             var requestBody = new
             {
