@@ -21,8 +21,9 @@ namespace SesliDil.Data.Repositories
 
         public async Task<T> GetByIdAsync<TId>(TId id)
         {
-            var keyName = typeof(T).Name + "Id"; // örnek: User → UserId, Conversation → ConversationId
-            return await _dbSet.FirstOrDefaultAsync(e => EF.Property<TId>(e, keyName)!.Equals(id));
+            // Burada "Conversation" için çalışacak, diğer T’ler için de aynı mantık:
+            return await _dbSet
+                .FirstOrDefaultAsync(e => EF.Property<TId>(e, "ConversationId")!.Equals(id));
         }
 
 
