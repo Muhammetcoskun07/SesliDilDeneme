@@ -12,6 +12,7 @@ namespace SesliDil.Core.DTOs
         public string Content { get; set; }
         public string ConversationId { get; set; }
         public string UserId { get; set; }
+        public string AudioUrl { get; set; }
 
     }
 }
