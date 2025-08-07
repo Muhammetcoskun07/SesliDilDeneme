@@ -107,18 +107,15 @@ namespace SesliDilDeneme.API.Controllers
         {
             try
             {
-                // Frontend’den gelen verileri logla
                 Console.WriteLine($"Frontend Data - Email: {request.Email}, FirstName: {request.FirstName}, LastName: {request.LastName}");
 
                 var handler = new JwtSecurityTokenHandler();
 
-                // 1. Apple public keys endpoint'inden public key'leri al
                 var appleKeysUrl = "https://appleid.apple.com/auth/keys";
                 using var httpClient = new HttpClient();
                 var json = await httpClient.GetStringAsync(appleKeysUrl);
                 var keys = new JsonWebKeySet(json).Keys;
 
-                // 2. Token’ı doğrulamak için ayarları hazırla
                 var validationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -131,24 +128,13 @@ namespace SesliDilDeneme.API.Controllers
                     IssuerSigningKeys = keys
                 };
 
-                // 3. Token'ı doğrula
                 var principal = handler.ValidateToken(request.IdToken, validationParameters, out var validatedToken);
-
                 var jwtToken = (JwtSecurityToken)validatedToken;
                 var socialId = jwtToken.Subject;
 
                 if (string.IsNullOrEmpty(socialId))
                     return Unauthorized("Apple ID token is invalid");
 
-                // Token’ın ham halini ve claim’leri logla
-                Console.WriteLine($"Raw Apple Token: {request.IdToken}");
-                Console.WriteLine("Apple Token Claims:");
-                foreach (var claim in principal.Claims)
-                {
-                    Console.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}");
-                }
-
-                // Token’dan email’i al ve frontend’den gelenle karşılaştır
                 var tokenEmail = principal.Claims.FirstOrDefault(c => c.Type == "email" ||
                     c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
                 var email = string.IsNullOrEmpty(request.Email) ? (string.IsNullOrEmpty(tokenEmail) ? $"{socialId}@apple.local" : tokenEmail) : request.Email;
@@ -159,7 +145,6 @@ namespace SesliDilDeneme.API.Controllers
                 }
                 email = email.Length > 255 ? email.Substring(0, 255) : email;
 
-                // Frontend’den gelen firstName ve lastName’i kullan, eksikse token’dan veya varsayılan değerlerden al
                 var firstName = string.IsNullOrEmpty(request.FirstName)
                     ? (principal.Claims.FirstOrDefault(c => c.Type == "given_name" ||
                         c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname")?.Value ?? "Guest")
@@ -172,32 +157,40 @@ namespace SesliDilDeneme.API.Controllers
                     : request.LastName;
                 lastName = lastName.Length > 100 ? lastName.Substring(0, 100) : lastName;
 
-                var user = await _userService.GetOrCreateBySocialAsync(
-                    "apple", socialId, email, firstName, lastName
-                );
-
+                var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, email, firstName, lastName);
                 if (user == null)
                     return Unauthorized("User creation failed");
 
-                // Session oluştur
+                //  JWT ve Refresh Token üretimi
+                var accessToken = GenerateJwtToken(user);
+                var refreshToken = Guid.NewGuid().ToString();
+                var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(30);
+                var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
+
+                //  Session kaydı
                 await _sessionService.CreateAsync(new Session
                 {
                     SessionId = Guid.NewGuid().ToString(),
                     UserId = user.UserId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    AccessTokenExpiresAt = accessTokenExpiresAt,
+                    RefreshTokenExpiresAt = refreshTokenExpiresAt
                 });
 
-                // JWT üret
-                var jwt = GenerateJwtToken(user);
-
+                //  Response
                 return Ok(new
                 {
-                    Token = jwt,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    AccessTokenExpiresAt = accessTokenExpiresAt,
+                    RefreshTokenExpiresAt = refreshTokenExpiresAt,
                     UserId = user.UserId,
+                    HasCompletedOnboarding = user.HasCompletedOnboarding,
                     Email = user.Email,
                     FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    HasCompletedOnboarding = user.HasCompletedOnboarding
+                    LastName = user.LastName
                 });
             }
             catch (SecurityTokenException ex)
