@@ -48,6 +48,7 @@ namespace SesliDil.Data.Repositories
             _dbSet.Update(entity);
             await _context.SaveChangesAsync();
         }
+      
 
         public void Delete(T entity)
         {
