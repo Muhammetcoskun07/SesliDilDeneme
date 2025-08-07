@@ -67,7 +67,7 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "user",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId) // Burada nativeLanguage kullanılıyor
+                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId) 
             };
 
             userMessage.GrammarErrors = await CheckGrammarAsync(request.Content, request.AgentId);
