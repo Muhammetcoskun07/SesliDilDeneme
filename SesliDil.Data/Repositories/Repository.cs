@@ -19,12 +19,10 @@ namespace SesliDil.Data.Repositories
             _dbSet = context.Set<T>();
         }
 
-        public async Task<T> GetByIdAsync<TId>(TId id)
-        {
-            // Burada "Conversation" için çalışacak, diğer T’ler için de aynı mantık:
-            return await _dbSet
-                .FirstOrDefaultAsync(e => EF.Property<TId>(e, "ConversationId")!.Equals(id));
-        }
+       public async Task<T> GetByIdAsync<TId>(TId id)
+       {
+    return await _dbSet.FindAsync(id); // <-- EF'nin native methodu, daha güvenli
+         }
 
 
 
