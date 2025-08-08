@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -24,8 +25,10 @@ namespace SesliDil.Service.Services
         private readonly IConfiguration _configuration;
         private readonly IRepository<AIAgent> _agentRepository;
         private readonly IRepository<User> _userRepository;
+        private readonly TtsService _ttsService;
 
         public MessageService(
+            TtsService ttsService,
             IRepository<Message> messageRepository,
             IMapper mapper,
             HttpClient httpClient,
@@ -39,6 +42,7 @@ namespace SesliDil.Service.Services
             _mapper = mapper;
             _httpClient = httpClient;
             _configuration = configuration;
+            _ttsService = ttsService;
             _agentRepository = agentRepository;
 
             _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
@@ -78,14 +82,23 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "user",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId) 
+                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId)
             };
 
             userMessage.GrammarErrors = await CheckGrammarAsync(content, request.AgentId);
             await CreateAsync(userMessage);
 
+            // 1. AI cevabı metin olarak al
             var aiResponseText = await GetAIResponseAsync(content, user.TargetLanguage, request.AgentId);
 
+            // 2. Metni sese çevir (byte[])
+            var voice = GetVoiceByLanguage(user.TargetLanguage);
+            var aiAudioBytes = await _ttsService.ConvertTextToSpeechAsync(aiResponseText, voice);
+
+            // 3. Ses dosyasını kaydet (string URL)
+            var aiAudioUrl = await _ttsService.SaveAudioToFileAsync(aiAudioBytes);
+
+            // 4. AI mesajını oluştur
             var aiMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -95,16 +108,25 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "assistant",
                 GrammarErrors = new List<string>(),
-
-                TranslatedContent = await TranslateAsync(aiResponseText, user.TargetLanguage, request.AgentId) // AI cevabı hedef dilde
-
+                TranslatedContent = await TranslateAsync(aiResponseText, user.TargetLanguage, request.AgentId),
+                AudioUrl = aiAudioUrl 
             };
 
             await CreateAsync(aiMessage);
 
             return _mapper.Map<MessageDto>(aiMessage);
         }
-
+        private string GetVoiceByLanguage(string language)
+        {
+            return language.ToLower() switch
+            {
+                "turkish" => "alloy",
+                "english" => "nova",
+                "spanish" => "shimmer",
+                // Diğer diller için eklemeler yapabilirsin
+                _ => "alloy" // Varsayılan ses
+            };
+        }
         public async Task<IEnumerable<MessageDto>> GetMessagesByConversationIdAsync(string conversationId)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
@@ -159,10 +181,10 @@ namespace SesliDil.Service.Services
             var audioContent = await DownloadAudioAsync(audioUrl);
 
             using var content = new MultipartFormDataContent
-            {
-                { new StreamContent(new MemoryStream(audioContent)), "file", "audio.mp3" },
-                { new StringContent("whisper-1"), "model" }
-            };
+    {
+        { new StreamContent(new MemoryStream(audioContent)), "file", "audio.mp3" },
+        { new StringContent("whisper-1"), "model" }
+    };
 
             var response = await _httpClient.PostAsync("audio/transcriptions", content);
             response.EnsureSuccessStatusCode();
@@ -264,6 +286,7 @@ namespace SesliDil.Service.Services
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             return result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
         }
+       
     }
 
 
