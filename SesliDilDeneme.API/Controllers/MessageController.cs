@@ -6,6 +6,7 @@ using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
 using SesliDil.Data.Repositories;
 using SesliDil.Service.Services;
+using static System.Net.WebRequestMethods;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -17,13 +18,16 @@ namespace SesliDilDeneme.API.Controllers
         private readonly IValidator<MessageDto> _messageValidator;
         private readonly IValidator<SendMessageRequest> _sendMessageValidator;
         private readonly IMapper _mapper;
+        private readonly TtsService _ttsService;
 
         public MessageController(
             MessageService messageService,
+            TtsService ttsService,
             IValidator<MessageDto> messageValidator,
             IValidator<SendMessageRequest> sendMessageValidator,
             IMapper mapper)
         {
+            _ttsService = ttsService;
             _messageService = messageService;
             _messageValidator = messageValidator;
             _sendMessageValidator = sendMessageValidator;
@@ -59,7 +63,14 @@ namespace SesliDilDeneme.API.Controllers
             var messages = await _messageService.GetMessagesByConversationIdAsync(conversationId);
             return Ok(messages);
         }
+        [HttpPost("speak")]
+        public async Task<IActionResult> Speak([FromBody] string text)
+        {
+            var audioBytes = await _ttsService.ConvertTextToSpeechAsync(text);
+            var audioUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
 
+            return Ok(new { audioUrl });
+        }
         [HttpPost]
         public async Task<ActionResult<MessageDto>> Create([FromBody] MessageDto messageDto)
         {

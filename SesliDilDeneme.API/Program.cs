@@ -31,6 +31,7 @@ builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<AIAgentService>();
 builder.Services.AddScoped<FileStorageService>();
 builder.Services.AddScoped<SessionService>();
+builder.Services.AddScoped<TtsService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
@@ -89,7 +90,7 @@ app.UseRouting();
 
 app.UseAuthentication(); // ÖNCE Authentication
 app.UseAuthorization();  // SONRA Authorization
-
+app.UseStaticFiles();
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();
