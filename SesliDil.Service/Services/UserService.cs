@@ -26,6 +26,7 @@ namespace SesliDil.Service.Services
             _context = context;
         }
 
+
         public async Task<User> GetOrCreateBySocialAsync(string provider, string socialId, string email, string firstName, string lastName)
         {
             // Veri doğrulama
@@ -79,7 +80,7 @@ namespace SesliDil.Service.Services
 
             return user;
         }
-
+        
         public async Task<bool> DeleteUserCompletelyAsync(string userId)
         {
             var user = await _userRepository.GetByIdAsync(userId);

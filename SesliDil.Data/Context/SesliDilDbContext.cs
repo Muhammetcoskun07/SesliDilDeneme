@@ -53,12 +53,12 @@ namespace SesliDil.Data.Context
                 entity.ToTable("Progress");
                 entity.HasKey(e => e.ProgressId);
                 entity.Property(e => e.ProgressId).ValueGeneratedOnAdd();
-                entity.Property(e => e.UserId).IsRequired().HasMaxLength(36);
+                entity.Property(e => e.UserId).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.DailyConversationCount).IsRequired();
                 entity.Property(e => e.TotalConversationTimeMinutes).IsRequired();
                 entity.Property(e => e.CurrentStreakDays).IsRequired();
                 entity.Property(e => e.LongestStreakDays).IsRequired();
-                entity.Property(e => e.CurrentLevel).IsRequired().HasMaxLength(2);
+                entity.Property(e => e.CurrentLevel).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.LastConversationDate).IsRequired();
                 entity.Property(e => e.UpdatedAt).IsRequired();
                 entity.HasOne(e => e.User).WithMany(u => u.Progresses).HasForeignKey(e => e.UserId);
