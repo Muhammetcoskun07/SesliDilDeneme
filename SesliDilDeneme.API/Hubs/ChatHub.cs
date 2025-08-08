@@ -12,11 +12,11 @@ namespace SesliDilDeneme.API.Hubs
     public class ChatHub : Hub
     {
         private readonly MessageService _messageService;
-        private readonly ILogger _logger;
+        private readonly ILogger<ChatHub> _logger;
         private readonly ConversationService _conversationService;
         private static readonly ConcurrentDictionary<string, Stopwatch> _conversationTimers = new();
 
-        public ChatHub(MessageService messageService, ILogger logger, ConversationService conversationService)
+        public ChatHub(MessageService messageService, ILogger<ChatHub> logger, ConversationService conversationService)
         {
             _messageService = messageService;
             _logger = logger;
@@ -101,8 +101,8 @@ namespace SesliDilDeneme.API.Hubs
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                _logger.LogError($"Unexpected error in SendMessage: {ex.Message}, took {stopwatch.ElapsedMilliseconds} ms");
-                await Clients.Caller.SendAsync("Error", "An error occurred while processing the message");
+                _logger.LogError(ex, $"Unexpected error in SendMessage, took {stopwatch.ElapsedMilliseconds} ms");
+                await Clients.Caller.SendAsync("Error", $"An error occurred while processing the message: {ex.Message}");
             }
         }
 

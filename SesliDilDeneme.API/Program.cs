@@ -68,15 +68,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
     });
+// Program.cs veya Startup.cs ConfigureServices içinde:
+
 
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen();
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy => policy
+            .WithOrigins("http://167.172.162.242:5000") 
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+});
 var app = builder.Build();
 
- if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
  {
      app.UseSwagger();
      app.UseSwaggerUI();
@@ -88,10 +98,10 @@ using (var scope = app.Services.CreateScope())
 }
 app.UseHttpsRedirection();
 app.UseRouting();
-
+app.UseCors("AllowFrontend");
 app.UseAuthentication(); // ÖNCE Authentication
 app.UseAuthorization();  // SONRA Authorization
-app.UseStaticFiles();
+app.UseStaticFiles();;
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();

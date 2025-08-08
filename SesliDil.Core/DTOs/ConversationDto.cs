@@ -12,7 +12,7 @@ namespace SesliDil.Core.DTOs
         public string? AgentId { get; set; }
         public string? Title { get; set; }
         //public string? Status { get; set; }
-        public double? DurationMinutes { get; set; }
+       public double? DurationMinutes { get; set; }
         public string? Summary { get; set; }
     }
 
