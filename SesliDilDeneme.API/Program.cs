@@ -32,6 +32,7 @@ builder.Services.AddScoped<AIAgentService>();
 builder.Services.AddScoped<FileStorageService>();
 builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<TtsService>();
+builder.Services.AddHostedService<AudioCleanupService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
