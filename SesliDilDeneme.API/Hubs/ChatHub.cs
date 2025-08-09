@@ -74,37 +74,38 @@ namespace SesliDilDeneme.API.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task SendMessage(SendMessageRequest request)
+        public async Task SendMessage(string conversationId, string userId, string agentId, string content)
         {
-            var stopwatch = Stopwatch.StartNew();
+            if (string.IsNullOrWhiteSpace(conversationId) ||
+                string.IsNullOrWhiteSpace(userId) ||
+                string.IsNullOrWhiteSpace(agentId) ||
+                string.IsNullOrWhiteSpace(content))
+            {
+                await Clients.Caller.SendAsync("Error", "SendMessage: One or more required parameters are missing.");
+                return;
+            }
+
             try
             {
+                var request = new SendMessageRequest
+                {
+                    ConversationId = conversationId,
+                    UserId = userId,
+                    AgentId = agentId,
+                    Content = content
+                };
+
                 var aiMessage = await _messageService.SendMessageAsync(request);
 
-                await Clients.Group(aiMessage.ConversationId).SendAsync("ReceiveMessage", aiMessage);
-
-                stopwatch.Stop();
-                _logger.LogInformation($"SendMessage completed in {stopwatch.ElapsedMilliseconds} ms for ConversationId: {aiMessage.ConversationId}");
-            }
-            catch (ValidationException ex)
-            {
-                stopwatch.Stop();
-                _logger.LogWarning($"Validation error in SendMessage: {ex.Message}, took {stopwatch.ElapsedMilliseconds} ms");
-                await Clients.Caller.SendAsync("Error", ex.Message);
-            }
-            catch (ArgumentException ex)
-            {
-                stopwatch.Stop();
-                _logger.LogWarning($"Argument error in SendMessage: {ex.Message}, took {stopwatch.ElapsedMilliseconds} ms");
-                await Clients.Caller.SendAsync("Error", ex.Message);
+                await Clients.Group(conversationId).SendAsync("ReceiveMessage", aiMessage);
             }
             catch (Exception ex)
             {
-                stopwatch.Stop();
-                _logger.LogError(ex, $"Unexpected error in SendMessage, took {stopwatch.ElapsedMilliseconds} ms");
-                await Clients.Caller.SendAsync("Error", $"An error occurred while processing the message: {ex.Message}");
+                _logger.LogError(ex, "Error in SendMessage");
+                await Clients.Caller.SendAsync("Error", $"Failed to send message: {ex.Message}");
             }
         }
+
 
         public async Task GetConversationDuration(string conversationId)
         {

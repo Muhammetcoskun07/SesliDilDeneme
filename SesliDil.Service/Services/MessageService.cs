@@ -52,7 +52,7 @@ namespace SesliDil.Service.Services
 
         public async Task<MessageDto> SendMessageAsync(SendMessageRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.AgentId))
+            if (request == null || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.AgentId))
                 throw new ArgumentException("Invalid input");
 
             var user = await _userRepository.GetByIdAsync(request.UserId);
@@ -62,43 +62,23 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(user.TargetLanguage))
                 throw new ArgumentException("User's target language is not specified");
 
-            string content = request.Content;
-
-            // Ses varsa, sesi yazıya döndür
-            if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(request.AudioUrl))
-            {
-                content = await ConvertSpeechToTextAsync(request.AudioUrl);
-                if (string.IsNullOrWhiteSpace(content))
-                    throw new ArgumentException("Audio could not be converted to text");
-            }
-
             var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
                 ConversationId = request.ConversationId,
                 Role = "user",
-                Content = content,
-                AudioUrl = request.AudioUrl,
+                Content = request.Content,
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "user",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId)
+                TranslatedContent = await TranslateAsync(request.Content, user.TargetLanguage, request.AgentId)
             };
 
-            userMessage.GrammarErrors = await CheckGrammarAsync(content, request.AgentId);
+            userMessage.GrammarErrors = await CheckGrammarAsync(request.Content, request.AgentId);
             await CreateAsync(userMessage);
 
-            // 1. AI cevabı metin olarak al
-            var aiResponseText = await GetAIResponseAsync(content, user.TargetLanguage, request.AgentId);
+            var aiResponseText = await GetAIResponseAsync(request.Content, user.TargetLanguage, request.AgentId, request.ConversationId);
 
-            // 2. Metni sese çevir (byte[])
-            var voice = GetVoiceByLanguage(user.TargetLanguage);
-            var aiAudioBytes = await _ttsService.ConvertTextToSpeechAsync(aiResponseText, voice);
-
-            // 3. Ses dosyasını kaydet (string URL)
-            var aiAudioUrl = await _ttsService.SaveAudioToFileAsync(aiAudioBytes);
-
-            // 4. AI mesajını oluştur
             var aiMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -108,14 +88,14 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "assistant",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(aiResponseText, user.TargetLanguage, request.AgentId),
-                AudioUrl = aiAudioUrl 
+                TranslatedContent = await TranslateAsync(aiResponseText, user.TargetLanguage, request.AgentId)
             };
 
             await CreateAsync(aiMessage);
 
             return _mapper.Map<MessageDto>(aiMessage);
         }
+
         private string GetVoiceByLanguage(string language)
         {
             return language.ToLower() switch
@@ -261,22 +241,37 @@ namespace SesliDil.Service.Services
             using var client = new HttpClient();
             return await client.GetByteArrayAsync(audioUrl);
         }
-        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId)
+        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId, string conversationId)
         {
             var agent = await _agentRepository.GetByIdAsync(agentId);
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
 
-            var prompt = $"{agent.AgentPrompt}\nUser: {userInput}\nPlease respond only in {targetLanguage}, with relevant and helpful information.";
+            // Konuşma geçmişini al
+            var messages = await _messageRepository.GetAllAsync();
+            var conversationMessages = messages
+                .Where(m => m.ConversationId == conversationId)
+                .OrderBy(m => m.CreatedAt)
+                .Take(10) // Son 10 mesajı al (token sınırları için)
+                .Select(m => new
+                {
+                    role = m.Role,
+                    content = m.Content
+                })
+                .ToList();
+
+            // Sistem prompt'u ve konuşma geçmişini birleştir
+            var promptMessages = new List<object>
+            {
+                new { role = "system", content = $"{agent.AgentPrompt}\nYou are a helpful assistant responding in {targetLanguage}." }
+            };
+            promptMessages.AddRange(conversationMessages);
+            promptMessages.Add(new { role = "user", content = userInput });
 
             var requestBody = new
             {
                 model = "gpt-4o",
-                messages = new[]
-                {
-                    new { role = "system", content = "You are a helpful assistant." },
-                    new { role = "user", content = prompt }
-                },
+                messages = promptMessages,
                 temperature = 0.7
             };
 
@@ -286,7 +281,7 @@ namespace SesliDil.Service.Services
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             return result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
         }
-       
+
     }
 
 
