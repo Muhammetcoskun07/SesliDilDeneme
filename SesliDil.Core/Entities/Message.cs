@@ -14,7 +14,7 @@ namespace SesliDil.Core.Entities
         public string Content { get; set; }
         public string? TranslatedContent { get; set; }
         public string? AudioUrl { get; set; }
-        public string SpeakerType { get; set; } // ENUM: user, ai
+        public string? SpeakerType { get; set; } // ENUM: user, ai
         public DateTime CreatedAt { get; set; }
         public List<string>? GrammarErrors { get; set; }
 
