@@ -62,6 +62,10 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(user.TargetLanguage))
                 throw new ArgumentException("User's target language is not specified");
 
+            if (string.IsNullOrWhiteSpace(user.NativeLanguage))
+                throw new ArgumentException("User's native language is not specified");
+
+            // Kullanıcının gönderdiği mesajı, native diline çeviriyoruz (örneğin: kullanıcı Türkçe yazıyorsa, nativeLanguage = "tr")
             var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -71,24 +75,36 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "user",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(request.Content, user.TargetLanguage, request.AgentId)
+                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId)
             };
 
             userMessage.GrammarErrors = await CheckGrammarAsync(request.Content, request.AgentId);
             await CreateAsync(userMessage);
 
+            // AI cevabını kullanıcı hedef dilinde alıyoruz (örneğin "es" İspanyolca)
             var aiResponseText = await GetAIResponseAsync(request.Content, user.TargetLanguage, request.AgentId, request.ConversationId);
+
+            // AI cevabını kullanıcının native diline çeviriyoruz (örneğin İngilizce)
+            var translatedContent = await TranslateAsync(aiResponseText, user.NativeLanguage, request.AgentId);
+
+            // TTS → Byte[] ses dosyası al, burada hedef dili kullanabiliriz
+            var voice = GetVoiceByLanguage(user.TargetLanguage); // Mesela "spanish" için "shimmer"
+            var audioBytes = await _ttsService.ConvertTextToSpeechAsync(aiResponseText, voice);
+
+            // Byte[] → mp3 olarak kaydet ve URL al
+            var audioUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
 
             var aiMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
                 ConversationId = userMessage.ConversationId,
                 Role = "assistant",
-                Content = aiResponseText,
+                Content = aiResponseText,              // AI cevabı hedef dilde
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "assistant",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(aiResponseText, user.TargetLanguage, request.AgentId)
+                TranslatedContent = translatedContent, // AI cevabının native dil çevirisi
+                AudioUrl = audioUrl
             };
 
             await CreateAsync(aiMessage);
@@ -173,7 +189,7 @@ namespace SesliDil.Service.Services
             return result.Text;
         }
 
-        public async Task<string> TranslateAsync(string text, string targetLanguage, string agentId)
+        public async Task<string> TranslateAsync(string text, string nativeLanguage, string agentId)
         {
             if (string.IsNullOrEmpty(text)) return string.Empty;
 
@@ -181,16 +197,16 @@ namespace SesliDil.Service.Services
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
 
-            var prompt = $"{agent.AgentPrompt}\nTranslate the following into {targetLanguage}:\n{text}";
+            var prompt = $"{agent.AgentPrompt}\nTranslate the following into {nativeLanguage}:\n{text}";
 
             var requestBody = new
             {
                 model = "gpt-4o",
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a helpful translator." },
-                    new { role = "user", content = prompt }
-                },
+            new { role = "system", content = "You are a helpful translator." },
+            new { role = "user", content = prompt }
+        },
                 temperature = 0.5
             };
 
