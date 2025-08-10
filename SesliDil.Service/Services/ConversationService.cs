@@ -52,7 +52,14 @@ namespace SesliDil.Service.Services
 
   
         }
-        public async Task<string> SaveAgentActivityAsync(string conversationId, string userId, string agentId, TimeSpan duration, int messageCount)
+        public async Task<string> SaveAgentActivityAsync(
+     string conversationId,
+     string userId,
+     string agentId,
+     TimeSpan duration,
+     int messageCount,
+     int wordCount,
+     double wordsPerMinute)
         {
             var activity = new ConversationAgentActivity
             {
@@ -62,8 +69,10 @@ namespace SesliDil.Service.Services
                 AgentId = agentId,
                 Duration = duration,
                 MessageCount = messageCount,
-              //  CreatedAt = DateTime.UtcNow
+                WordCount = wordCount,
+                WordsPerMinute = wordsPerMinute,
             };
+
             await _dbContext.ConversationAgentActivities.AddAsync(activity);
             await _dbContext.SaveChangesAsync();
             return activity.ActivityId;
