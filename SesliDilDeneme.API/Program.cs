@@ -33,6 +33,7 @@ builder.Services.AddScoped<FileStorageService>();
 builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<TtsService>();
 builder.Services.AddHostedService<AudioCleanupService>();
+builder.Services.AddSingleton<AgentActivityService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
@@ -68,7 +69,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
     });
-// Program.cs veya Startup.cs ConfigureServices içinde:
+e:
 
 
 builder.Services.AddAuthorization();
@@ -79,7 +80,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
         policy => policy
-            .WithOrigins("http://167.172.162.242:5000") 
+            .WithOrigins("http://167.172.162.242:5000", "http://localhost") 
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());

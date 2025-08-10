@@ -23,6 +23,7 @@ namespace SesliDil.Data.Context
         public DbSet<Progress> Progresses { get; set; }
         public DbSet<AIAgent> AIAgents { get; set; }
         public DbSet<Session> Sessions { get; set; } // ✅ Session eklendi
+        public DbSet<ConversationAgentActivity> ConversationAgentActivities { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -134,6 +135,20 @@ namespace SesliDil.Data.Context
                 entity.HasOne<User>()
                       .WithMany()
                       .HasForeignKey(e => e.UserId);
+            });
+            modelBuilder.Entity<ConversationAgentActivity>(entity =>
+            {
+                entity.ToTable("ConversationAgentActivity");
+                entity.HasKey(e => e.ActivityId);
+                entity.Property(e => e.ActivityId).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.ConversationId).IsRequired().HasMaxLength(36);
+                entity.Property(e => e.UserId).IsRequired().HasMaxLength(36);
+                entity.Property(e => e.AgentId).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Duration).IsRequired();
+                entity.Property(e => e.MessageCount).IsRequired();
+                entity.HasOne(e => e.Conversation).WithMany().HasForeignKey(e => e.ConversationId);
+                entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
+                entity.HasOne(e => e.AIAgent).WithMany().HasForeignKey(e => e.AgentId);
             });
         }
     }
