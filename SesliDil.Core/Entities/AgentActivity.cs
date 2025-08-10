@@ -11,5 +11,6 @@ namespace SesliDil.Core.Entities
     {
         public Stopwatch Stopwatch { get; set; } = new Stopwatch();
         public int MessageCount { get; set; } = 0;
+        public int WordCount { get; set; }
     }
 }

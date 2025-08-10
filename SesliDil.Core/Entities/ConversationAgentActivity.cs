@@ -15,6 +15,8 @@ namespace SesliDil.Core.Entities
 
         public string AgentId { get; set; }
         public TimeSpan Duration { get; set; }
+        public int WordCount { get; set; }
+        public double WordsPerMinute { get; set; }
 
         public int MessageCount { get; set; }
         public virtual Conversation Conversation { get; set; }

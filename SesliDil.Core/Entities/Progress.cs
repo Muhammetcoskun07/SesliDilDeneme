@@ -18,7 +18,7 @@ namespace SesliDil.Core.Entities
         public DateTime LastConversationDate { get; set; }
         public DateTime UpdatedAt { get; set; }
         //public decimal ProgressRate { get; set; }
-
+        public double BestWordsPerMinute { get; set; }
         public User User { get; set; }
 
     }

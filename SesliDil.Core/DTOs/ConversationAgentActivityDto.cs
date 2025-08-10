@@ -14,6 +14,10 @@ namespace SesliDil.Core.DTOs
         public string AgentId { get; set; }
         public double DurationMinutes { get; set; }
         public int MessageCount { get; set; }
+
+        public int WordCount { get; set; }
+        public double WordsPerMinute { get; set; }
+
         public DateTime? CreatedAt { get; set; }
     }
 }

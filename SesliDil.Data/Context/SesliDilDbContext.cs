@@ -60,7 +60,7 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.CurrentStreakDays).IsRequired();
                 entity.Property(e => e.LongestStreakDays).IsRequired();
                 entity.Property(e => e.CurrentLevel).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.LastConversationDate).IsRequired();
+               // entity.Property(e => e.LastConversationDate).IsRequired();
                 entity.Property(e => e.UpdatedAt).IsRequired();
                 entity.HasOne(e => e.User).WithMany(u => u.Progresses).HasForeignKey(e => e.UserId);
             });
@@ -146,6 +146,8 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.AgentId).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Duration).IsRequired();
                 entity.Property(e => e.MessageCount).IsRequired();
+                entity.Property(e => e.WordCount).IsRequired();
+                entity.Property(e => e.WordsPerMinute).IsRequired();
                 entity.HasOne(e => e.Conversation).WithMany().HasForeignKey(e => e.ConversationId);
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
                 entity.HasOne(e => e.AIAgent).WithMany().HasForeignKey(e => e.AgentId);

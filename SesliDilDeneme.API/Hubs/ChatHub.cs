@@ -2,9 +2,11 @@
 using System.Diagnostics;
 using FluentValidation;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
+using SesliDil.Data.Context;
 using SesliDil.Service.Services;
 using SesliDilDeneme.API.Validators;
 
@@ -17,13 +19,15 @@ namespace SesliDilDeneme.API.Hubs
         private readonly ConversationService _conversationService;
         private static readonly ConcurrentDictionary<string, Stopwatch> _conversationTimers = new();
         private readonly AgentActivityService _agentActivityService;
+        private readonly SesliDilDbContext _dbContext;
 
-        public ChatHub(MessageService messageService, ILogger<ChatHub> logger, ConversationService conversationService,AgentActivityService agentActivityService)
+        public ChatHub(MessageService messageService, ILogger<ChatHub> logger, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext)
         {
             _messageService = messageService;
             _logger = logger;
             _conversationService = conversationService;
             _agentActivityService = agentActivityService;
+            _dbContext = dbContext;
         }
         public override async Task OnConnectedAsync()
         {
@@ -65,63 +69,109 @@ namespace SesliDilDeneme.API.Hubs
 
             try
             {
-                var activityData = _agentActivityService.ActivityData; // Buradan alıyoruz artık
+                var activityData = _agentActivityService.ActivityData;
 
-                if (activityData.TryGetValue(conversationId, out var usersDict) && usersDict != null)
+                if (activityData.TryGetValue(conversationId, out var usersDict) && usersDict != null &&
+                    usersDict.TryGetValue(userId, out var agentsDict) && agentsDict != null)
                 {
-                    if (usersDict.TryGetValue(userId, out var agentsDict) && agentsDict != null)
+                    if (agentsDict.TryRemove(agentId, out var agentActivity) && agentActivity != null)
                     {
-                        if (agentsDict.TryRemove(agentId, out var agentActivity) && agentActivity != null)
+                        agentActivity.Stopwatch.Stop();
+
+                        double totalMinutes = agentActivity.Stopwatch.Elapsed.TotalMinutes;
+                        double wordsPerMinute = totalMinutes > 0 ? agentActivity.WordCount / totalMinutes : 0;
+
+                        _logger.LogInformation(
+                            $"User {userId} ended conversation {conversationId} with Agent {agentId}. " +
+                            $"Duration: {totalMinutes} minutes, Messages: {agentActivity.MessageCount}, " +
+                            $"Words: {agentActivity.WordCount}, WPM: {wordsPerMinute}"
+                        );
+
+                        // Konuşma aktivitesini kaydet
+                        await _conversationService.SaveAgentActivityAsync(
+                            conversationId, userId, agentId,
+                            agentActivity.Stopwatch.Elapsed,
+                            agentActivity.MessageCount,
+                            agentActivity.WordCount,
+                            wordsPerMinute
+                        );
+
+                        // Kullanıcı seviyesini al
+                        var user = await _dbContext.Users
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(u => u.UserId == userId);
+
+                        var userLevel = user?.ProficiencyLevel ?? "A1"; // User tablosundaki seviye yoksa varsayılan A1
+
+                        // Progress tablosu güncelle
+                        var progress = await _dbContext.Progresses.FirstOrDefaultAsync(p => p.UserId == userId);
+
+                        if (progress != null)
                         {
-                            agentActivity.Stopwatch.Stop();
-                            _logger.LogInformation($"User {userId} ended conversation {conversationId} with Agent {agentId}. Duration: {agentActivity.Stopwatch.Elapsed.TotalMinutes} minutes, Messages: {agentActivity.MessageCount}");
-
-                            await _conversationService.SaveAgentActivityAsync(conversationId, userId, agentId, agentActivity.Stopwatch.Elapsed, agentActivity.MessageCount);
-
-                            var activityDto = new ConversationAgentActivityDto
+                            if (wordsPerMinute > progress.BestWordsPerMinute)
                             {
-                                ActivityId = Guid.NewGuid().ToString(),
-                                ConversationId = conversationId,
-                                UserId = userId,
-                                AgentId = agentId,
-                                DurationMinutes = agentActivity.Stopwatch.Elapsed.TotalMinutes,
-                                MessageCount = agentActivity.MessageCount,
-                                CreatedAt = DateTime.UtcNow
-                            };
-                            await Clients.Caller.SendAsync("ReceiveActivityData", activityDto);
+                                progress.BestWordsPerMinute = wordsPerMinute;
+                            }
+
+                            progress.CurrentLevel = userLevel; // User tablosundaki seviye ile güncelle
+                            progress.UpdatedAt = DateTime.UtcNow;
+
+                            await _dbContext.SaveChangesAsync();
+                            _logger.LogInformation($"Progress updated for User {userId}: Level = {userLevel}, Best WPM = {wordsPerMinute}");
                         }
                         else
                         {
-                            _logger.LogWarning($"Failed to remove agentId {agentId} for userId {userId} in conversationId {conversationId}");
+                            var newProgress = new Progress
+                            {
+                                ProgressId = Guid.NewGuid().ToString(),
+                                UserId = userId,
+                                BestWordsPerMinute = wordsPerMinute,
+                                UpdatedAt = DateTime.UtcNow,
+                                LastConversationDate = DateTime.UtcNow,
+                                DailyConversationCount = 1,
+                                TotalConversationTimeMinutes = (int)Math.Round(totalMinutes),
+                                CurrentStreakDays = 1,
+                                LongestStreakDays = 1,
+                                CurrentLevel = userLevel
+                            };
+
+                            await _dbContext.Progresses.AddAsync(newProgress);
+                            await _dbContext.SaveChangesAsync();
+                            _logger.LogInformation($"Progress created for User {userId}: Level = {userLevel}, Best WPM = {wordsPerMinute}");
                         }
 
-                        if (agentsDict.IsEmpty)
+                        // İstemciye gönder
+                        var activityDto = new ConversationAgentActivityDto
                         {
-                            if (usersDict.TryRemove(userId, out _))
-                            {
-                                _logger.LogInformation($"Removed userId {userId} from usersDict for conversationId {conversationId}");
-                            }
-                            else
-                            {
-                                _logger.LogWarning($"Failed to remove userId {userId} from usersDict for conversationId {conversationId}");
-                            }
-                        }
+                            ActivityId = Guid.NewGuid().ToString(),
+                            ConversationId = conversationId,
+                            UserId = userId,
+                            AgentId = agentId,
+                            DurationMinutes = totalMinutes,
+                            MessageCount = agentActivity.MessageCount,
+                            WordCount = agentActivity.WordCount,
+                            WordsPerMinute = wordsPerMinute,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await Clients.Caller.SendAsync("ReceiveActivityData", activityDto);
                     }
                     else
                     {
-                        _logger.LogWarning($"No agentsDict found for userId {userId} in conversationId {conversationId}");
+                        _logger.LogWarning($"Failed to remove agentId {agentId} for userId {userId} in conversationId {conversationId}");
                     }
 
+                    // Agent dictionary boşsa user'ı kaldır
+                    if (agentsDict.IsEmpty)
+                    {
+                        if (usersDict.TryRemove(userId, out _))
+                            _logger.LogInformation($"Removed userId {userId} from usersDict for conversationId {conversationId}");
+                    }
+
+                    // User dictionary boşsa conversation'ı kaldır
                     if (usersDict.IsEmpty)
                     {
                         if (activityData.TryRemove(conversationId, out _))
-                        {
                             _logger.LogInformation($"Removed conversationId {conversationId} from _activityData");
-                        }
-                        else
-                        {
-                            _logger.LogWarning($"Failed to remove conversationId {conversationId} from _activityData");
-                        }
                     }
 
                     await Groups.RemoveFromGroupAsync(Context.ConnectionId, conversationId);
@@ -138,6 +188,7 @@ namespace SesliDilDeneme.API.Hubs
 
             await base.OnDisconnectedAsync(exception);
         }
+
         public async Task SendMessage(string conversationId, string userId, string agentId, string content)
         {
             if (string.IsNullOrWhiteSpace(conversationId) ||
@@ -156,6 +207,10 @@ namespace SesliDilDeneme.API.Hubs
                 agentsDict.TryGetValue(agentId, out var agentActivity))
             {
                 agentActivity.MessageCount++;
+
+                // Kelime sayısını hesapla
+                int wordCount = CountWords(content);
+                agentActivity.WordCount += wordCount;
             }
 
             try
@@ -177,6 +232,13 @@ namespace SesliDilDeneme.API.Hubs
                 _logger.LogError(ex, "Error in SendMessage");
                 await Clients.Caller.SendAsync("Error", $"Failed to send message: {ex.Message}");
             }
+        }
+        private int CountWords(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return 0;
+            // Basit bir kelime sayımı: boşluklara göre ayır
+            var words = text.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return words.Length;
         }
         public async Task GetConversationDuration(string conversationId)
         {
