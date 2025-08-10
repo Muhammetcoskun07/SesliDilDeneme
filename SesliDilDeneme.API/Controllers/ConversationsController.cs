@@ -12,11 +12,15 @@ namespace SesliDilDeneme.API.Controllers
     {
         private readonly ConversationService _conversationService;
         private readonly UserService _userService;
+        private readonly AgentActivityService _agentActivityService;
+        private readonly ILogger<ConversationsController> _logger;
 
-        public ConversationsController(ConversationService conversationService, UserService userService)
+        public ConversationsController(ConversationService conversationService, UserService userService, AgentActivityService agentActivityService, ILogger<ConversationsController> logger)
         {
             _conversationService = conversationService;
             _userService = userService;
+            _agentActivityService = agentActivityService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -26,7 +30,7 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(conversations);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("id/{id}")]
         public async Task<ActionResult<ConversationDto>> GetById(string id)
         {
             if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
@@ -72,7 +76,7 @@ namespace SesliDilDeneme.API.Controllers
             await _conversationService.CreateAsync(conversation);
             return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, conversation);
         }
-
+   
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] ConversationDto conversationDto)
         {

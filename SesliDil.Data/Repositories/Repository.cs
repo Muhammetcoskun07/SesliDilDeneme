@@ -25,7 +25,10 @@ namespace SesliDil.Data.Repositories
          }
 
 
-
+        public async Task<T> FindAsync(object id)
+        {
+            return await _context.Set<T>().FindAsync(id);
+        }
         public async Task<IEnumerable<T>> GetAllAsync()
         {
             return await _dbSet.ToListAsync();
