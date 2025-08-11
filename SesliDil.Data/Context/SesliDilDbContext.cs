@@ -77,6 +77,7 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.AudioUrl).HasMaxLength(1000);
                 entity.Property(e => e.SpeakerType).HasMaxLength(10);
                 entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.CorrectedText);
                 entity.HasOne(e => e.Conversation).WithMany(c => c.Messages).HasForeignKey(e => e.ConversationId);
             });
 
