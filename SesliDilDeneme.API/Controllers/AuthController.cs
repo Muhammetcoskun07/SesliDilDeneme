@@ -72,8 +72,8 @@ namespace SesliDilDeneme.API.Controllers
                 {
                     AccessToken = accessToken,
                     RefreshToken = refreshToken,
-                    //AccessTokenExpiresAt = accessTokenExpiresAt,
-                   // RefreshTokenExpiresAt = refreshTokenExpiresAt,
+                    AccessTokenExpiresAt = accessTokenExpiresAt,
+                    RefreshTokenExpiresAt = refreshTokenExpiresAt,
                     UserId = user.UserId,
                     HasCompletedOnboarding = user.HasCompletedOnboarding
                 });
