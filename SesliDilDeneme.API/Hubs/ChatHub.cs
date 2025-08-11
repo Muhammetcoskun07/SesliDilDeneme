@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Data.Context;
+using SesliDil.Service.Interfaces;
 using SesliDil.Service.Services;
 using SesliDilDeneme.API.Validators;
 
@@ -20,14 +21,16 @@ namespace SesliDilDeneme.API.Hubs
         private static readonly ConcurrentDictionary<string, Stopwatch> _conversationTimers = new();
         private readonly AgentActivityService _agentActivityService;
         private readonly SesliDilDbContext _dbContext;
+        private readonly IUserDailyActivityService _userDailyActivityService;
 
-        public ChatHub(MessageService messageService, ILogger<ChatHub> logger, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext)
+        public ChatHub(MessageService messageService, ILogger<ChatHub> logger, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext,IUserDailyActivityService userDailyActivityService)
         {
             _messageService = messageService;
             _logger = logger;
             _conversationService = conversationService;
             _agentActivityService = agentActivityService;
             _dbContext = dbContext;
+            _userDailyActivityService = userDailyActivityService;
         }
         public override async Task OnConnectedAsync()
         {
@@ -117,6 +120,24 @@ namespace SesliDilDeneme.API.Hubs
 
                             var lastDate = progress.LastConversationDate.Date;
                             var today = now.Date;
+                            var yesterday = today.AddDays(-1);
+                            var existingActivity = await _userDailyActivityService.GetByUserAndDateAsync(userId, today);
+
+                            if (existingActivity != null)
+                            {
+                                existingActivity.MinutesSpent += (int)Math.Round(totalMinutes);
+                                await _userDailyActivityService.UpdateAsync(existingActivity);
+                            }
+                            else
+                            {
+                                var newActivity = new UserDailyActivityDto
+                                {
+                                    UserId = userId,
+                                    Date = today,
+                                    MinutesSpent = (int)Math.Round(totalMinutes)
+                                };
+                                await _userDailyActivityService.AddAsync(newActivity);
+                            }
 
                             // DailyConversationCount
                             if (lastDate == today)
@@ -128,17 +149,36 @@ namespace SesliDilDeneme.API.Hubs
                                 progress.DailyConversationCount = 1;
                             }
 
+                            // Streak hesaplama
+                            if (lastDate == yesterday)
+                            {
+                                progress.CurrentStreakDays += 1;
+                            }
+                            else if (lastDate == today)
+                            {
+                                // Aynı gün içinde tekrar ise streak değişmez
+                            }
+                            else
+                            {
+                                progress.CurrentStreakDays = 1;
+                            }
+
+                            // En uzun streak güncelle
+                            if (progress.CurrentStreakDays > progress.LongestStreakDays)
+                            {
+                                progress.LongestStreakDays = progress.CurrentStreakDays;
+                            }
+
                             // Toplam konuşma süresi ekle
                             progress.TotalConversationTimeMinutes += (int)Math.Round(totalMinutes);
-
-                            // Streak hesaplamasını sonraki aşamaya bırakalım (şimdilik değiştirmiyoruz)
 
                             progress.LastConversationDate = now;
                             progress.CurrentLevel = userLevel;
                             progress.UpdatedAt = now;
 
                             await _dbContext.SaveChangesAsync();
-                            _logger.LogInformation($"Progress updated for User {userId}: Level = {userLevel}, Best WPM = {wordsPerMinute}");
+
+                            _logger.LogInformation($"Progress updated for User {userId}: Level = {userLevel}, Best WPM = {wordsPerMinute}, Current Streak = {progress.CurrentStreakDays}");
                         }
                         else
                         {
@@ -151,8 +191,8 @@ namespace SesliDilDeneme.API.Hubs
                                 LastConversationDate = now,
                                 DailyConversationCount = 1,
                                 TotalConversationTimeMinutes = (int)Math.Round(totalMinutes),
-                                CurrentStreakDays = 0, // Henüz hesaplanmadı
-                                LongestStreakDays = 0,
+                                CurrentStreakDays = 1, // Yeni kayıt için başlangıç 1
+                                LongestStreakDays = 1,
                                 CurrentLevel = userLevel
                             };
 
@@ -160,7 +200,8 @@ namespace SesliDilDeneme.API.Hubs
                             await _dbContext.SaveChangesAsync();
                             _logger.LogInformation($"Progress created for User {userId}: Level = {userLevel}, Best WPM = {wordsPerMinute}");
                         }
-
+                        
+                        
                         // İstemciye gönder
                         var activityDto = new ConversationAgentActivityDto
                         {
