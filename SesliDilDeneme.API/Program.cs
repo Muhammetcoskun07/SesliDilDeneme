@@ -38,6 +38,7 @@ builder.Services.AddScoped<IUserDailyActivityService, UserDailyActivityService>(
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 // SignalR
 builder.Services.AddSignalR();
