@@ -51,32 +51,41 @@ namespace SesliDilDeneme.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ConversationDto>> Create([FromBody] ConversationDto conversationDto)
+        public async Task<ActionResult<ConversationDto>> Create([FromBody] CreateConversationDto dto)
         {
-            if (conversationDto == null || string.IsNullOrEmpty(conversationDto.UserId))
+            if (dto == null || string.IsNullOrEmpty(dto.UserId))
                 return BadRequest("Invalid conversation data");
 
-            var user = await _userService.GetByIdAsync(conversationDto.UserId);
+            var user = await _userService.GetByIdAsync(dto.UserId);
             if (user == null)
                 return BadRequest("User not found");
 
             var conversation = new Conversation
             {
                 ConversationId = Guid.NewGuid().ToString(),
-                UserId = conversationDto.UserId,
-                AgentId = conversationDto.AgentId,
-                Title = conversationDto.Title,
-                //Status = conversationDto.Status,
+                UserId = dto.UserId,
+                AgentId = dto.AgentId,
+                Title = dto.Title,
                 Language = user.TargetLanguage,
                 StartedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                DurationMinutes = null
+                CreatedAt = DateTime.UtcNow
             };
 
             await _conversationService.CreateAsync(conversation);
-            return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, conversation);
+
+            var responseDto = new ConversationDto
+            {
+               ConversationId=conversation.ConversationId,
+                UserId = conversation.UserId,
+                AgentId = conversation.AgentId,
+                Title = conversation.Title,
+               // DurationMinutes = null,
+                //Summary = null
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, responseDto);
         }
-   
+
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] ConversationDto conversationDto)
         {
