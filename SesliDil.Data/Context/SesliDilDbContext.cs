@@ -131,7 +131,7 @@ namespace SesliDil.Data.Context
                 entity.HasKey(e => e.SessionId);
                 entity.Property(e => e.SessionId).ValueGeneratedOnAdd();
                 entity.Property(e => e.UserId).IsRequired().HasMaxLength(36);
-                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.CreatedAt);
 
                 entity.HasOne<User>()
                       .WithMany()
