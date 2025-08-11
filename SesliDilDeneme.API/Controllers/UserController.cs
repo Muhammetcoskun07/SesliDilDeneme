@@ -219,7 +219,71 @@ namespace SesliDilDeneme.API.Controllers
                 return StatusCode(500, $"Sunucu hatası: {ex.Message}");
             }
         }
+        [HttpPatch("{userId}/preferences")]
+        public async Task<IActionResult> UpdatePreferences(string userId, [FromBody] UpdateUserPreferencesDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return BadRequest("Invalid preferences data.");
 
+                // Helper method ile kontrol ve dönüşüm yapabiliriz
+                JsonDocument? ValidateAndFix(JsonDocument? doc, string fieldName)
+                {
+                    if (doc == null) return null;
+
+                    var root = doc.RootElement;
+
+                    if (root.ValueKind == JsonValueKind.Array)
+                        return doc; // Doğru
+
+                    if (root.ValueKind == JsonValueKind.String)
+                    {
+                        // Tek string gelmiş, bunu dizi haline çevirelim
+                        var singleItem = new List<string> { root.GetString() ?? "" };
+                        var jsonStr = JsonSerializer.Serialize(singleItem);
+                        return JsonDocument.Parse(jsonStr);
+                    }
+
+                    throw new ArgumentException($"{fieldName} should be a JSON array or string.");
+                }
+
+                try
+                {
+                    dto.LearningGoals = ValidateAndFix(dto.LearningGoals, "learningGoals");
+                    dto.ImprovementGoals = ValidateAndFix(dto.ImprovementGoals, "improvementGoals");
+                    dto.TopicInterests = ValidateAndFix(dto.TopicInterests, "topicInterests");
+                }
+                catch (ArgumentException ex)
+                {
+                    return BadRequest(ex.Message);
+                }
+
+                var user = await _userService.GetByIdAsync(userId);
+                if (user == null)
+                    return NotFound("User not found.");
+
+                user.LearningGoals = dto.LearningGoals ?? user.LearningGoals;
+                user.ImprovementGoals = dto.ImprovementGoals ?? user.ImprovementGoals;
+                user.TopicInterests = dto.TopicInterests ?? user.TopicInterests;
+                user.WeeklySpeakingGoal = dto.WeeklySpeakingGoal ?? user.WeeklySpeakingGoal;
+
+                await _userService.UpdateAsync(user);
+
+                return NoContent();
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                Console.WriteLine($"[UPDATE PREFERENCES ERROR]: {ex.Message}, Inner: {innerException}");
+                return StatusCode(500, $"Server error: {innerException}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UPDATE PREFERENCES ERROR]: {ex.Message}");
+                return StatusCode(500, $"Server error: {ex.Message}");
+            }
+        }
         [HttpDelete("{id}/full-delete")]
         public async Task<IActionResult> DeleteUserCompletely(string id)
         {
@@ -230,17 +294,6 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new { message = "User and all related data deleted successfully." });
         }
 
-        [HttpPatch("{userId}/learning-goals")]
-        public async Task<IActionResult> UpdateLearningGoals(string userId, [FromBody] List<string> learningGoals)
-        {
-            if (learningGoals == null || !learningGoals.Any())
-                return BadRequest("Learning goals are required.");
-
-            var result = await _userService.UpdateLearningGoalsAsync(userId, learningGoals);
-            if (!result)
-                return NotFound("User not found.");
-
-            return NoContent();
-        }
+    
     }
 }
