@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.DTOs;
 using SesliDil.Service.Interfaces;
+using SesliDil.Service.Services;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -50,6 +51,12 @@ namespace SesliDilDeneme.API.Controllers
                 UserId = request.UserId,
                 CompletedDates = completedDates
             });
+        }
+        [HttpGet("{userId}/today-speaking-completion")]
+        public async Task<IActionResult> GetTodaySpeakingCompletion(string userId)
+        {
+            var completionRate = await _service.GetTodaySpeakingCompletionRateAsync(userId);
+            return Ok(new { CompletionRate = completionRate });
         }
     }
 }

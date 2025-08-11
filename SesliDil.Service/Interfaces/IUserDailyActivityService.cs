@@ -15,5 +15,7 @@ namespace SesliDil.Service.Interfaces
         Task<UserDailyActivityDto> GetByUserAndDateAsync(string userId, DateTime date);
         Task<UserDailyActivityDto> UpdateAsync(UserDailyActivityDto dto);
         Task<IEnumerable<UserDailyActivityDto>> GetByUserAndDatesAsync(string userId, List<DateTime> dates);
+        Task<double> GetTodaySpeakingCompletionRateAsync(string userId);
+
     }
 }
