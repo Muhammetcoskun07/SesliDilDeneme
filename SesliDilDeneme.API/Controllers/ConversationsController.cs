@@ -146,5 +146,16 @@ namespace SesliDilDeneme.API.Controllers
                 return StatusCode(500, $"Hata: {ex.Message}"); // Daha açıklayıcı hata mesajı
             }
         }
+        // GET: api/conversations/summary/computed/{conversationId}?samples=3&highlights=3
+        [HttpGet("summary/computed/{conversationId}")]
+        public async Task<IActionResult> GetComputedSummary(
+            string conversationId,
+            [FromQuery] int samples = 3,
+            [FromQuery] int highlights = 3)
+        {
+            var dto = await _conversationService.BuildConversationSummaryComputedAsync(conversationId, samples, highlights);
+            return Ok(dto);
+        }
+
     }
 }

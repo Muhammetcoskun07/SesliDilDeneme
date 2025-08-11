@@ -17,6 +17,7 @@ namespace SesliDil.Core.Entities
         public string SpeakerType { get; set; } // ENUM: user, ai
         public DateTime CreatedAt { get; set; }
         public List<string>? GrammarErrors { get; set; }
+        public string? CorrectedText { get; set; }
 
         public Conversation Conversation { get; set; }
     }
