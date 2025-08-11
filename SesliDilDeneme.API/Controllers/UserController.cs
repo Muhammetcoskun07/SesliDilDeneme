@@ -190,7 +190,9 @@ namespace SesliDilDeneme.API.Controllers
                         CurrentStreakDays = 0,
                         LongestStreakDays = 0,
                         LastConversationDate = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        UpdatedAt = DateTime.UtcNow,
+                        BestWordsPerMinute = 0.0
+
                     };
                     await _progressRepository.AddAsync(progress);
                     await _progressRepository.SaveChangesAsync();

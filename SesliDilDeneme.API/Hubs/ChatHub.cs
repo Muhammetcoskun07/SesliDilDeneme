@@ -106,6 +106,8 @@ namespace SesliDilDeneme.API.Hubs
                         // Progress tablosu güncelle
                         var progress = await _dbContext.Progresses.FirstOrDefaultAsync(p => p.UserId == userId);
 
+                        var now = DateTime.UtcNow;
+
                         if (progress != null)
                         {
                             if (wordsPerMinute > progress.BestWordsPerMinute)
@@ -113,8 +115,27 @@ namespace SesliDilDeneme.API.Hubs
                                 progress.BestWordsPerMinute = wordsPerMinute;
                             }
 
-                            progress.CurrentLevel = userLevel; // User tablosundaki seviye ile güncelle
-                            progress.UpdatedAt = DateTime.UtcNow;
+                            var lastDate = progress.LastConversationDate.Date;
+                            var today = now.Date;
+
+                            // DailyConversationCount
+                            if (lastDate == today)
+                            {
+                                progress.DailyConversationCount += 1;
+                            }
+                            else
+                            {
+                                progress.DailyConversationCount = 1;
+                            }
+
+                            // Toplam konuşma süresi ekle
+                            progress.TotalConversationTimeMinutes += (int)Math.Round(totalMinutes);
+
+                            // Streak hesaplamasını sonraki aşamaya bırakalım (şimdilik değiştirmiyoruz)
+
+                            progress.LastConversationDate = now;
+                            progress.CurrentLevel = userLevel;
+                            progress.UpdatedAt = now;
 
                             await _dbContext.SaveChangesAsync();
                             _logger.LogInformation($"Progress updated for User {userId}: Level = {userLevel}, Best WPM = {wordsPerMinute}");
@@ -126,12 +147,12 @@ namespace SesliDilDeneme.API.Hubs
                                 ProgressId = Guid.NewGuid().ToString(),
                                 UserId = userId,
                                 BestWordsPerMinute = wordsPerMinute,
-                                UpdatedAt = DateTime.UtcNow,
-                                LastConversationDate = DateTime.UtcNow,
+                                UpdatedAt = now,
+                                LastConversationDate = now,
                                 DailyConversationCount = 1,
                                 TotalConversationTimeMinutes = (int)Math.Round(totalMinutes),
-                                CurrentStreakDays = 1,
-                                LongestStreakDays = 1,
+                                CurrentStreakDays = 0, // Henüz hesaplanmadı
+                                LongestStreakDays = 0,
                                 CurrentLevel = userLevel
                             };
 
@@ -151,7 +172,7 @@ namespace SesliDilDeneme.API.Hubs
                             MessageCount = agentActivity.MessageCount,
                             WordCount = agentActivity.WordCount,
                             WordsPerMinute = wordsPerMinute,
-                            CreatedAt = DateTime.UtcNow
+                            CreatedAt = now
                         };
                         await Clients.Caller.SendAsync("ReceiveActivityData", activityDto);
                     }
@@ -188,7 +209,6 @@ namespace SesliDilDeneme.API.Hubs
 
             await base.OnDisconnectedAsync(exception);
         }
-
         public async Task SendMessage(string conversationId, string userId, string agentId, string content)
         {
             if (string.IsNullOrWhiteSpace(conversationId) ||

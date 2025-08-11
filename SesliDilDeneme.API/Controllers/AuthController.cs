@@ -261,7 +261,9 @@ namespace SesliDilDeneme.API.Controllers
                 AccessTokenExpiresAt = newAccessExp,
                 RefreshToken = session.RefreshToken,
                 RefreshTokenExpiresAt = session.RefreshTokenExpiresAt,
-                UserId = user.UserId
+                UserId = user.UserId,
+                HasCompletedOnboarding = user.HasCompletedOnboarding
+
             });
         }
 
