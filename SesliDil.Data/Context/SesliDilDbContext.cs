@@ -22,8 +22,9 @@ namespace SesliDil.Data.Context
         public DbSet<FileStorage> FileStorages { get; set; }
         public DbSet<Progress> Progresses { get; set; }
         public DbSet<AIAgent> AIAgents { get; set; }
-        public DbSet<Session> Sessions { get; set; } // ✅ Session eklendi
+        public DbSet<Session> Sessions { get; set; } 
         public DbSet<ConversationAgentActivity> ConversationAgentActivities { get; set; }
+        public DbSet<UserDailyActivity> UserDailyActivities { get; set; } 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -151,6 +152,17 @@ namespace SesliDil.Data.Context
                 entity.HasOne(e => e.Conversation).WithMany().HasForeignKey(e => e.ConversationId);
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
                 entity.HasOne(e => e.AIAgent).WithMany().HasForeignKey(e => e.AgentId);
+            });
+            modelBuilder.Entity<UserDailyActivity>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.UserId).IsRequired();
+
+                entity.Property(e => e.Date).IsRequired();
+
+                entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
+                     
             });
         }
     }
