@@ -16,10 +16,12 @@ namespace SesliDil.Service.Services
     {
         private readonly SesliDilDbContext _context;
         private readonly IMapper _mapper;
-        public UserDailyActivityService(SesliDilDbContext context, IMapper mapper)
+        private readonly UserService _userService; 
+        public UserDailyActivityService(SesliDilDbContext context, IMapper mapper, UserService userService)
         {
             _context = context;
             _mapper = mapper;
+            _userService = userService;
         }
         public async Task<UserDailyActivityDto> AddAsync(UserDailyActivityDto dto)
         {
@@ -74,5 +76,43 @@ namespace SesliDil.Service.Services
 
             return _mapper.Map<IEnumerable<UserDailyActivityDto>>(entities);
         }
+        public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
+        {
+            var user = await _userService.GetByIdAsync(userId);
+            if (user == null)
+                return 0;
+
+            int dailyGoal = GetDailyGoalFromString(user.WeeklySpeakingGoal); 
+            if (dailyGoal == 0)
+                return 0;
+
+            var utcToday = DateTime.Today.ToUniversalTime();
+            var activity = await GetByUserAndDateAsync(userId, utcToday);
+            int minutesSpent = activity?.MinutesSpent ?? 0;
+
+            double rate = (double)minutesSpent / dailyGoal * 100;
+            return Math.Min(rate, 100);
+        }
+        private readonly Dictionary<string, int> DailyGoalMapping = new Dictionary<string, int>()
+        {
+            { "5-10 minutes a day", 8 },
+            { "15-20 minutes a day", 18 },
+            { "30 minutes a day", 30 },
+            { "45+ minutes a day", 45 }
+        };
+        private int GetDailyGoalFromString(string goal)
+        {
+            if (string.IsNullOrEmpty(goal))
+                return 0;
+
+            if (DailyGoalMapping.TryGetValue(goal, out int minutes))
+                return minutes;
+
+            return 0; // Bilinmeyen hedef için 0 döner
+        }
+
+
+
+
     }
 }
