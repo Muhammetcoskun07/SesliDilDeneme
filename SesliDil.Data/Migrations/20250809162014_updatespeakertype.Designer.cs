@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SesliDil.Data.Context;
@@ -13,9 +14,11 @@ using SesliDil.Data.Context;
 namespace SesliDil.Data.Migrations
 {
     [DbContext(typeof(SesliDilDbContext))]
-    partial class SesliDilDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250809162014_updatespeakertype")]
+    partial class updatespeakertype
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -108,50 +111,6 @@ namespace SesliDil.Data.Migrations
                     b.ToTable("Conversation", (string)null);
                 });
 
-            modelBuilder.Entity("SesliDil.Core.Entities.ConversationAgentActivity", b =>
-                {
-                    b.Property<string>("ActivityId")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("AgentId")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("ConversationId")
-                        .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("character varying(36)");
-
-                    b.Property<TimeSpan>("Duration")
-                        .HasColumnType("interval");
-
-                    b.Property<int>("MessageCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("character varying(36)");
-
-                    b.Property<int>("WordCount")
-                        .HasColumnType("integer");
-
-                    b.Property<double>("WordsPerMinute")
-                        .HasColumnType("double precision");
-
-                    b.HasKey("ActivityId");
-
-                    b.HasIndex("AgentId");
-
-                    b.HasIndex("ConversationId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("ConversationAgentActivity", (string)null);
-                });
-
             modelBuilder.Entity("SesliDil.Core.Entities.FileStorage", b =>
                 {
                     b.Property<string>("FileId")
@@ -222,6 +181,7 @@ namespace SesliDil.Data.Migrations
                         .HasColumnType("character varying(10)");
 
                     b.Property<string>("SpeakerType")
+                        .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
@@ -240,9 +200,6 @@ namespace SesliDil.Data.Migrations
                     b.Property<string>("ProgressId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text");
-
-                    b.Property<double>("BestWordsPerMinute")
-                        .HasColumnType("double precision");
 
                     b.Property<string>("CurrentLevel")
                         .IsRequired()
@@ -412,33 +369,6 @@ namespace SesliDil.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Agent");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("SesliDil.Core.Entities.ConversationAgentActivity", b =>
-                {
-                    b.HasOne("SesliDil.Core.Entities.AIAgent", "AIAgent")
-                        .WithMany()
-                        .HasForeignKey("AgentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SesliDil.Core.Entities.Conversation", "Conversation")
-                        .WithMany()
-                        .HasForeignKey("ConversationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SesliDil.Core.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AIAgent");
-
-                    b.Navigation("Conversation");
 
                     b.Navigation("User");
                 });

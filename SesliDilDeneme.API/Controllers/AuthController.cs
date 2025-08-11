@@ -9,6 +9,7 @@ using SesliDil.Service.Services;
 using SesliDil.Core.DTOs;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Google.Apis.Auth.OAuth2.Requests;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -236,9 +237,9 @@ namespace SesliDilDeneme.API.Controllers
         }
 
         [HttpPost("refresh")]
-        public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
-            var session = await _sessionService.GetByRefreshTokenAsync(refreshToken);
+            var session = await _sessionService.GetByRefreshTokenAsync(request.RefreshToken);
 
             if (session == null || session.RefreshTokenExpiresAt < DateTime.UtcNow)
                 return Unauthorized("Refresh token geçersiz veya süresi dolmuş.");
@@ -260,9 +261,17 @@ namespace SesliDilDeneme.API.Controllers
                 AccessTokenExpiresAt = newAccessExp,
                 RefreshToken = session.RefreshToken,
                 RefreshTokenExpiresAt = session.RefreshTokenExpiresAt,
-                UserId = user.UserId
+                UserId = user.UserId,
+                HasCompletedOnboarding = user.HasCompletedOnboarding
+
             });
         }
+
+        public class RefreshTokenRequest
+        {
+            public string RefreshToken { get; set; }
+        }
+
 
     }
 }

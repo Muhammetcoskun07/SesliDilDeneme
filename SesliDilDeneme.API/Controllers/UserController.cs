@@ -156,18 +156,13 @@ namespace SesliDilDeneme.API.Controllers
         {
             try
             {
-                // Giriş verilerini kontrol et
                 if (onboardingDto == null)
                     return BadRequest("Geçersiz onboarding verileri");
 
-            
-
-                // Kullanıcıyı bul
-                var user = await _userService.GetByIdAsync<string>(userId);
+                var user = await _userService.GetByIdAsync(userId);
                 if (user == null)
                     return NotFound("Kullanıcı bulunamadı");
 
-                // Kullanıcı bilgilerini güncelle
                 user.NativeLanguage = onboardingDto.NativeLanguage;
                 user.TargetLanguage = onboardingDto.TargetLanguage;
                 user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
@@ -177,53 +172,54 @@ namespace SesliDilDeneme.API.Controllers
                 user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
                 user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
                 user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
-                user.LastLoginAt = DateTime.UtcNow; // Son giriş zamanını güncelle
+                user.LastLoginAt = DateTime.UtcNow;
 
-                // Progress tablosunu işle
+                // Kullanıcıyı kaydet
+                await _userService.UpdateAsync(user);
+
                 var progress = await _progressService.GetSingleByUserIdAsync(userId);
                 if (progress == null)
                 {
-                    // Yeni Progress kaydı oluştur
                     progress = new Progress
                     {
-                        ProgressId = Guid.NewGuid().ToString(), // UUID üret
+                        ProgressId = Guid.NewGuid().ToString(),
                         UserId = userId,
-                        CurrentLevel = user.ProficiencyLevel ?? "A1", // Varsayılan A1, eğer ProficiencyLevel null ise
+                        CurrentLevel = user.ProficiencyLevel ?? "A1",
                         DailyConversationCount = 0,
                         TotalConversationTimeMinutes = 0,
                         CurrentStreakDays = 0,
                         LongestStreakDays = 0,
                         LastConversationDate = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        UpdatedAt = DateTime.UtcNow,
+                        BestWordsPerMinute = 0.0
+
                     };
                     await _progressRepository.AddAsync(progress);
+                    await _progressRepository.SaveChangesAsync();
                 }
                 else
                 {
-                    // Mevcut Progress kaydını güncelle
-                    progress.CurrentLevel = user.ProficiencyLevel ?? "A1"; // Varsayılan A1
+                    progress.CurrentLevel = user.ProficiencyLevel ?? "A1";
                     progress.UpdatedAt = DateTime.UtcNow;
                     _progressRepository.Update(progress);
+                    await _progressRepository.SaveChangesAsync();
                 }
-
-                // Tüm değişiklikleri kaydet
 
                 return Ok("Onboarding bilgileri ve ilerleme kaydedildi.");
             }
             catch (DbUpdateException ex)
             {
-                // Veritabanı hatalarını logla
                 var innerException = ex.InnerException?.Message ?? ex.Message;
                 Console.WriteLine($"[ONBOARDING HATASI]: {ex.Message}, İç Hata: {innerException}");
                 return StatusCode(500, $"Sunucu hatası: {innerException}");
             }
             catch (Exception ex)
             {
-                // Genel hataları logla
                 Console.WriteLine($"[ONBOARDING HATASI]: {ex.Message}");
                 return StatusCode(500, $"Sunucu hatası: {ex.Message}");
             }
         }
+
         [HttpDelete("{id}/full-delete")]
         public async Task<IActionResult> DeleteUserCompletely(string id)
         {

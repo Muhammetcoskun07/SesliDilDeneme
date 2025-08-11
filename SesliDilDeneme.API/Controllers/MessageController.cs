@@ -6,6 +6,7 @@ using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
 using SesliDil.Data.Repositories;
 using SesliDil.Service.Services;
+using static System.Net.WebRequestMethods;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -17,17 +18,33 @@ namespace SesliDilDeneme.API.Controllers
         private readonly IValidator<MessageDto> _messageValidator;
         private readonly IValidator<SendMessageRequest> _sendMessageValidator;
         private readonly IMapper _mapper;
+        private readonly TtsService _ttsService;
+        private readonly IRepository<User> _userRepository;
+        private readonly IConfiguration _configuration;
+        private readonly IRepository<Message> _messageRepository;
+        private readonly IRepository<Conversation> _conversationRepository;
+
 
         public MessageController(
             MessageService messageService,
+            TtsService ttsService,
             IValidator<MessageDto> messageValidator,
             IValidator<SendMessageRequest> sendMessageValidator,
-            IMapper mapper)
+            IMapper mapper,
+            IRepository<Message> messageRepository,
+            IRepository<Conversation> conversationRepository,
+            IRepository<User> userRepository,
+            IConfiguration configuration)
         {
+            _ttsService = ttsService;
             _messageService = messageService;
             _messageValidator = messageValidator;
             _sendMessageValidator = sendMessageValidator;
             _mapper = mapper;
+            _userRepository = userRepository;
+            _configuration = configuration;
+            _messageRepository = messageRepository;
+            _conversationRepository = conversationRepository;
         }
 
         [HttpGet]
@@ -59,7 +76,37 @@ namespace SesliDilDeneme.API.Controllers
             var messages = await _messageService.GetMessagesByConversationIdAsync(conversationId);
             return Ok(messages);
         }
+        [HttpPost("speak")]
+        public async Task<IActionResult> SpeakByMessageId([FromBody] SpeakByMessageIdRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request?.MessageId))
+                return BadRequest("MessageId is required.");
 
+            var message = await _messageRepository.GetByIdAsync(request.MessageId);
+            if (message == null)
+                return NotFound("Message not found.");
+
+            // Mesajın conversationId'si ile user'ı bul
+            var conversation = await _conversationRepository.GetByIdAsync(message.ConversationId);
+            if (conversation == null)
+                return NotFound("Conversation not found.");
+
+            var user = await _userRepository.GetByIdAsync(conversation.UserId);
+            if (user == null)
+                return NotFound("User not found.");
+
+            if (string.IsNullOrWhiteSpace(user.TargetLanguage))
+                return BadRequest("User's target language is not set.");
+
+            // Tüm sesler "alloy"
+            var audioBytes = await _ttsService.ConvertTextToSpeechAsync(message.Content, "alloy");
+            var relativeUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
+
+            var baseUrl = _configuration["AppUrl"]?.TrimEnd('/') ?? "";
+            var fullUrl = $"{baseUrl}{relativeUrl}";
+
+            return Ok(new { AudioUrl = fullUrl });
+        }
         [HttpPost]
         public async Task<ActionResult<MessageDto>> Create([FromBody] MessageDto messageDto)
         {

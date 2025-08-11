@@ -17,7 +17,7 @@ namespace SesliDil.Core.Interfaces
         Task<int> SaveChangesAsync(); 
         IQueryable<T> Query();
         Task UpdateAsync(Conversation conversation);
-
+        Task<T> FindAsync(object id);
         Task<Conversation> GetByIdWithMessagesAsync(string id);
     }
 }

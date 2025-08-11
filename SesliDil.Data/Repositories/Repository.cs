@@ -19,14 +19,16 @@ namespace SesliDil.Data.Repositories
             _dbSet = context.Set<T>();
         }
 
-        public async Task<T> GetByIdAsync<TId>(TId id)
+       public async Task<T> GetByIdAsync<TId>(TId id)
+       {
+    return await _dbSet.FindAsync(id); // <-- EF'nin native methodu, daha güvenli
+         }
+
+
+        public async Task<T> FindAsync(object id)
         {
-            var keyName = typeof(T).Name + "Id"; // örnek: User → UserId, Conversation → ConversationId
-            return await _dbSet.FirstOrDefaultAsync(e => EF.Property<TId>(e, keyName)!.Equals(id));
+            return await _context.Set<T>().FindAsync(id);
         }
-
-
-
         public async Task<IEnumerable<T>> GetAllAsync()
         {
             return await _dbSet.ToListAsync();
@@ -47,6 +49,7 @@ namespace SesliDil.Data.Repositories
             _dbSet.Update(entity);
             await _context.SaveChangesAsync();
         }
+      
 
         public void Delete(T entity)
         {

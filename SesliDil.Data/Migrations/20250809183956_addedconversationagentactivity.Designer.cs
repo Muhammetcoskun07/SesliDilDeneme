@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SesliDil.Data.Context;
@@ -13,9 +14,11 @@ using SesliDil.Data.Context;
 namespace SesliDil.Data.Migrations
 {
     [DbContext(typeof(SesliDilDbContext))]
-    partial class SesliDilDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250809183956_addedconversationagentactivity")]
+    partial class addedconversationagentactivity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -135,12 +138,6 @@ namespace SesliDil.Data.Migrations
                         .HasMaxLength(36)
                         .HasColumnType("character varying(36)");
 
-                    b.Property<int>("WordCount")
-                        .HasColumnType("integer");
-
-                    b.Property<double>("WordsPerMinute")
-                        .HasColumnType("double precision");
-
                     b.HasKey("ActivityId");
 
                     b.HasIndex("AgentId");
@@ -240,9 +237,6 @@ namespace SesliDil.Data.Migrations
                     b.Property<string>("ProgressId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text");
-
-                    b.Property<double>("BestWordsPerMinute")
-                        .HasColumnType("double precision");
 
                     b.Property<string>("CurrentLevel")
                         .IsRequired()

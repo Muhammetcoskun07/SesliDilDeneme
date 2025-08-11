@@ -12,11 +12,15 @@ namespace SesliDilDeneme.API.Controllers
     {
         private readonly ConversationService _conversationService;
         private readonly UserService _userService;
+        private readonly AgentActivityService _agentActivityService;
+        private readonly ILogger<ConversationsController> _logger;
 
-        public ConversationsController(ConversationService conversationService, UserService userService)
+        public ConversationsController(ConversationService conversationService, UserService userService, AgentActivityService agentActivityService, ILogger<ConversationsController> logger)
         {
             _conversationService = conversationService;
             _userService = userService;
+            _agentActivityService = agentActivityService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -26,7 +30,7 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(conversations);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("id/{id}")]
         public async Task<ActionResult<ConversationDto>> GetById(string id)
         {
             if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
@@ -47,30 +51,39 @@ namespace SesliDilDeneme.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ConversationDto>> Create([FromBody] ConversationDto conversationDto)
+        public async Task<ActionResult<ConversationDto>> Create([FromBody] CreateConversationDto dto)
         {
-            if (conversationDto == null || string.IsNullOrEmpty(conversationDto.UserId))
+            if (dto == null || string.IsNullOrEmpty(dto.UserId))
                 return BadRequest("Invalid conversation data");
 
-            var user = await _userService.GetByIdAsync(conversationDto.UserId);
+            var user = await _userService.GetByIdAsync(dto.UserId);
             if (user == null)
                 return BadRequest("User not found");
 
             var conversation = new Conversation
             {
                 ConversationId = Guid.NewGuid().ToString(),
-                UserId = conversationDto.UserId,
-                AgentId = conversationDto.AgentId,
-                Title = conversationDto.Title,
-                //Status = conversationDto.Status,
+                UserId = dto.UserId,
+                AgentId = dto.AgentId,
+                Title = dto.Title,
                 Language = user.TargetLanguage,
                 StartedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                DurationMinutes = null
+                CreatedAt = DateTime.UtcNow
             };
 
             await _conversationService.CreateAsync(conversation);
-            return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, conversation);
+
+            var responseDto = new ConversationDto
+            {
+               ConversationId=conversation.ConversationId,
+                UserId = conversation.UserId,
+                AgentId = conversation.AgentId,
+                Title = conversation.Title,
+               // DurationMinutes = null,
+                //Summary = null
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, responseDto);
         }
 
         [HttpPut("{id}")]
@@ -128,7 +141,17 @@ namespace SesliDilDeneme.API.Controllers
             var summary = await _conversationService.GetSummaryByConversationIdAsync(id);
             return Ok(summary);
         }
+        [HttpPost("{id}/end")]
+        public async Task<IActionResult> EndConversation(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
 
+            var conversation = await _conversationService.GetByIdAsync<string>(id);
+            if (conversation == null) return NotFound();
+
+            await _conversationService.EndConversationAsync(id);
+            return NoContent();
+        }
         [HttpPost("{id}/summary")]
         public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
         {

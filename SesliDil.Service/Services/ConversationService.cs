@@ -9,6 +9,7 @@ using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
 using SesliDil.Core.Mappings;
+using SesliDil.Data.Context;
 using SesliDil.Service.Interfaces;
 
 namespace SesliDil.Service.Services
@@ -17,10 +18,12 @@ namespace SesliDil.Service.Services
     {
         private readonly IRepository<Conversation> _conversationRepository;
         private readonly IMapper _mapper;
+        private readonly SesliDilDbContext _dbContext;
 
-        public ConversationService(IRepository<Conversation> conversationRepository, IMapper mapper)
+        public ConversationService(IRepository<Conversation> conversationRepository, IMapper mapper,SesliDilDbContext dbContext)
             : base(conversationRepository, mapper)
         {
+            _dbContext = dbContext;
             _conversationRepository = conversationRepository;
             _mapper = mapper;
         }
@@ -49,7 +52,31 @@ namespace SesliDil.Service.Services
 
   
         }
+        public async Task<string> SaveAgentActivityAsync(
+     string conversationId,
+     string userId,
+     string agentId,
+     TimeSpan duration,
+     int messageCount,
+     int wordCount,
+     double wordsPerMinute)
+        {
+            var activity = new ConversationAgentActivity
+            {
+                ActivityId = Guid.NewGuid().ToString(),
+                ConversationId = conversationId,
+                UserId = userId,
+                AgentId = agentId,
+                Duration = duration,
+                MessageCount = messageCount,
+                WordCount = wordCount,
+                WordsPerMinute = wordsPerMinute,
+            };
 
+            await _dbContext.ConversationAgentActivities.AddAsync(activity);
+            await _dbContext.SaveChangesAsync();
+            return activity.ActivityId;
+        }
         public async Task SaveSummaryAsync(string conversationId, string summary)
         {
             var conv = await _conversationRepository.GetByIdAsync(conversationId);

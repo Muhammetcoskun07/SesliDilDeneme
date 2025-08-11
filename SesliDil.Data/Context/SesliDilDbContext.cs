@@ -23,6 +23,7 @@ namespace SesliDil.Data.Context
         public DbSet<Progress> Progresses { get; set; }
         public DbSet<AIAgent> AIAgents { get; set; }
         public DbSet<Session> Sessions { get; set; } // ✅ Session eklendi
+        public DbSet<ConversationAgentActivity> ConversationAgentActivities { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,13 +54,13 @@ namespace SesliDil.Data.Context
                 entity.ToTable("Progress");
                 entity.HasKey(e => e.ProgressId);
                 entity.Property(e => e.ProgressId).ValueGeneratedOnAdd();
-                entity.Property(e => e.UserId).IsRequired().HasMaxLength(36);
+                entity.Property(e => e.UserId).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.DailyConversationCount).IsRequired();
                 entity.Property(e => e.TotalConversationTimeMinutes).IsRequired();
                 entity.Property(e => e.CurrentStreakDays).IsRequired();
                 entity.Property(e => e.LongestStreakDays).IsRequired();
-                entity.Property(e => e.CurrentLevel).IsRequired().HasMaxLength(2);
-                entity.Property(e => e.LastConversationDate).IsRequired();
+                entity.Property(e => e.CurrentLevel).IsRequired().HasMaxLength(100);
+               // entity.Property(e => e.LastConversationDate).IsRequired();
                 entity.Property(e => e.UpdatedAt).IsRequired();
                 entity.HasOne(e => e.User).WithMany(u => u.Progresses).HasForeignKey(e => e.UserId);
             });
@@ -73,7 +74,7 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.Role).IsRequired().HasMaxLength(10);
                 entity.Property(e => e.Content).HasMaxLength(4000);
                 entity.Property(e => e.AudioUrl).HasMaxLength(1000);
-                entity.Property(e => e.SpeakerType).IsRequired().HasMaxLength(10);
+                entity.Property(e => e.SpeakerType).HasMaxLength(10);
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.HasOne(e => e.Conversation).WithMany(c => c.Messages).HasForeignKey(e => e.ConversationId);
             });
@@ -134,6 +135,22 @@ namespace SesliDil.Data.Context
                 entity.HasOne<User>()
                       .WithMany()
                       .HasForeignKey(e => e.UserId);
+            });
+            modelBuilder.Entity<ConversationAgentActivity>(entity =>
+            {
+                entity.ToTable("ConversationAgentActivity");
+                entity.HasKey(e => e.ActivityId);
+                entity.Property(e => e.ActivityId).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.ConversationId).IsRequired().HasMaxLength(36);
+                entity.Property(e => e.UserId).IsRequired().HasMaxLength(36);
+                entity.Property(e => e.AgentId).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Duration).IsRequired();
+                entity.Property(e => e.MessageCount).IsRequired();
+                entity.Property(e => e.WordCount).IsRequired();
+                entity.Property(e => e.WordsPerMinute).IsRequired();
+                entity.HasOne(e => e.Conversation).WithMany().HasForeignKey(e => e.ConversationId);
+                entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
+                entity.HasOne(e => e.AIAgent).WithMany().HasForeignKey(e => e.AgentId);
             });
         }
     }

@@ -5,8 +5,10 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
@@ -23,8 +25,10 @@ namespace SesliDil.Service.Services
         private readonly IConfiguration _configuration;
         private readonly IRepository<AIAgent> _agentRepository;
         private readonly IRepository<User> _userRepository;
+        private readonly TtsService _ttsService;
 
         public MessageService(
+            TtsService ttsService,
             IRepository<Message> messageRepository,
             IMapper mapper,
             HttpClient httpClient,
@@ -38,6 +42,7 @@ namespace SesliDil.Service.Services
             _mapper = mapper;
             _httpClient = httpClient;
             _configuration = configuration;
+            _ttsService = ttsService;
             _agentRepository = agentRepository;
 
             _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
@@ -57,6 +62,10 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(user.TargetLanguage))
                 throw new ArgumentException("User's target language is not specified");
 
+            if (string.IsNullOrWhiteSpace(user.NativeLanguage))
+                throw new ArgumentException("User's native language is not specified");
+
+            // Kullanıcının gönderdiği mesajı, native diline çeviriyoruz (örneğin: kullanıcı Türkçe yazıyorsa, nativeLanguage = "tr")
             var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -66,24 +75,36 @@ namespace SesliDil.Service.Services
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "user",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(request.Content, user.TargetLanguage, request.AgentId)
+                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId)
             };
 
             userMessage.GrammarErrors = await CheckGrammarAsync(request.Content, request.AgentId);
             await CreateAsync(userMessage);
 
-            var aiResponseText = await GetAIResponseAsync(request.Content, user.TargetLanguage, request.AgentId);
+            // AI cevabını kullanıcı hedef dilinde alıyoruz (örneğin "es" İspanyolca)
+            var aiResponseText = await GetAIResponseAsync(request.Content, user.TargetLanguage, request.AgentId, request.ConversationId);
+
+            // AI cevabını kullanıcının native diline çeviriyoruz (örneğin İngilizce)
+            var translatedContent = await TranslateAsync(aiResponseText, user.NativeLanguage, request.AgentId);
+
+            // TTS → Byte[] ses dosyası al, burada hedef dili kullanabiliriz
+            var voice = GetVoiceByLanguage(user.TargetLanguage); // Mesela "spanish" için "shimmer"
+            var audioBytes = await _ttsService.ConvertTextToSpeechAsync(aiResponseText, voice);
+
+            // Byte[] → mp3 olarak kaydet ve URL al
+            var audioUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
 
             var aiMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
                 ConversationId = userMessage.ConversationId,
                 Role = "assistant",
-                Content = aiResponseText,
+                Content = aiResponseText,              // AI cevabı hedef dilde
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "assistant",
                 GrammarErrors = new List<string>(),
-                TranslatedContent = ""
+                TranslatedContent = translatedContent, // AI cevabının native dil çevirisi
+                AudioUrl = audioUrl
             };
 
             await CreateAsync(aiMessage);
@@ -91,6 +112,17 @@ namespace SesliDil.Service.Services
             return _mapper.Map<MessageDto>(aiMessage);
         }
 
+        private string GetVoiceByLanguage(string language)
+        {
+            return language.ToLower() switch
+            {
+                "turkish" => "alloy",
+                "english" => "nova",
+                "spanish" => "shimmer",
+                // Diğer diller için eklemeler yapabilirsin
+                _ => "alloy" // Varsayılan ses
+            };
+        }
         public async Task<IEnumerable<MessageDto>> GetMessagesByConversationIdAsync(string conversationId)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
@@ -121,6 +153,9 @@ namespace SesliDil.Service.Services
             return _mapper.Map<MessageDto>(message);
         }
 
+
+
+
         public async Task<string> GenerateSpeechAsync(string text)
         {
             var requestBody = new
@@ -142,10 +177,10 @@ namespace SesliDil.Service.Services
             var audioContent = await DownloadAudioAsync(audioUrl);
 
             using var content = new MultipartFormDataContent
-            {
-                { new StreamContent(new MemoryStream(audioContent)), "file", "audio.mp3" },
-                { new StringContent("whisper-1"), "model" }
-            };
+    {
+        { new StreamContent(new MemoryStream(audioContent)), "file", "audio.mp3" },
+        { new StringContent("whisper-1"), "model" }
+    };
 
             var response = await _httpClient.PostAsync("audio/transcriptions", content);
             response.EnsureSuccessStatusCode();
@@ -154,7 +189,7 @@ namespace SesliDil.Service.Services
             return result.Text;
         }
 
-        public async Task<string> TranslateAsync(string text, string targetLanguage, string agentId)
+        public async Task<string> TranslateAsync(string text, string nativeLanguage, string agentId)
         {
             if (string.IsNullOrEmpty(text)) return string.Empty;
 
@@ -162,16 +197,16 @@ namespace SesliDil.Service.Services
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
 
-            var prompt = $"{agent.AgentPrompt}\nTranslate the following into {targetLanguage}:\n{text}";
+            var prompt = $"{agent.AgentPrompt}\nTranslate the following into {nativeLanguage}:\n{text}";
 
             var requestBody = new
             {
                 model = "gpt-4o",
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a helpful translator." },
-                    new { role = "user", content = prompt }
-                },
+            new { role = "system", content = "You are a helpful translator." },
+            new { role = "user", content = prompt }
+        },
                 temperature = 0.5
             };
 
@@ -222,23 +257,37 @@ namespace SesliDil.Service.Services
             using var client = new HttpClient();
             return await client.GetByteArrayAsync(audioUrl);
         }
-
-        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId)
+        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId, string conversationId)
         {
             var agent = await _agentRepository.GetByIdAsync(agentId);
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
 
-            var prompt = $"{agent.AgentPrompt}\nUser: {userInput}\nRespond in {targetLanguage}:";
+            // Konuşma geçmişini al
+            var messages = await _messageRepository.GetAllAsync();
+            var conversationMessages = messages
+                .Where(m => m.ConversationId == conversationId)
+                .OrderBy(m => m.CreatedAt)
+                .Take(10) // Son 10 mesajı al (token sınırları için)
+                .Select(m => new
+                {
+                    role = m.Role,
+                    content = m.Content
+                })
+                .ToList();
+
+            // Sistem prompt'u ve konuşma geçmişini birleştir
+            var promptMessages = new List<object>
+            {
+                new { role = "system", content = $"{agent.AgentPrompt}\nYou are a helpful assistant responding in {targetLanguage}." }
+            };
+            promptMessages.AddRange(conversationMessages);
+            promptMessages.Add(new { role = "user", content = userInput });
 
             var requestBody = new
             {
                 model = "gpt-4o",
-                messages = new[]
-                {
-                    new { role = "system", content = "You are a helpful assistant." },
-                    new { role = "user", content = prompt }
-                },
+                messages = promptMessages,
                 temperature = 0.7
             };
 
@@ -248,8 +297,9 @@ namespace SesliDil.Service.Services
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             return result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
         }
+
     }
 
-    
-   
+
+
 }

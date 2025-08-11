@@ -31,6 +31,9 @@ builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<AIAgentService>();
 builder.Services.AddScoped<FileStorageService>();
 builder.Services.AddScoped<SessionService>();
+builder.Services.AddScoped<TtsService>();
+builder.Services.AddHostedService<AudioCleanupService>();
+builder.Services.AddSingleton<AgentActivityService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
@@ -66,15 +69,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
     });
+e:
+
 
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen();
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy => policy
+            .WithOrigins("http://167.172.162.242:5000", "http://localhost") 
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+});
 var app = builder.Build();
 
- if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
  {
      app.UseSwagger();
      app.UseSwaggerUI();
@@ -86,10 +99,12 @@ using (var scope = app.Services.CreateScope())
 }
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseCors("AllowFrontend");
+
 
 app.UseAuthentication(); // ÖNCE Authentication
 app.UseAuthorization();  // SONRA Authorization
-
+app.UseStaticFiles();;
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();
