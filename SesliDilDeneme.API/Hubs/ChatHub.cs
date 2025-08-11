@@ -276,6 +276,20 @@ namespace SesliDilDeneme.API.Hubs
 
             try
             {
+                // 1️⃣ Kullanıcı mesajını DB'ye ekle
+                var userMessage = new Message
+                {
+                    MessageId = Guid.NewGuid().ToString(),
+                    ConversationId = conversationId,
+                    Role = "user",
+                    SpeakerType = "user",
+                    Content = content,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _dbContext.Messages.AddAsync(userMessage);
+                await _dbContext.SaveChangesAsync();
+
+                // 2️⃣ AI cevabını al
                 var request = new SendMessageRequest
                 {
                     ConversationId = conversationId,
@@ -286,6 +300,24 @@ namespace SesliDilDeneme.API.Hubs
 
                 var aiMessage = await _messageService.SendMessageAsync(request);
 
+                // 3️⃣ AI cevabını DB'ye ekle
+                var aiDbMessage = new Message
+                {
+                    MessageId = Guid.NewGuid().ToString(),
+                    ConversationId = conversationId,
+                    Role = "ai",
+                    SpeakerType = "ai",
+                    Content = aiMessage.Content,
+                    TranslatedContent = aiMessage.TranslatedContent,
+                    AudioUrl = aiMessage.AudioUrl,
+                    GrammarErrors = aiMessage.GrammarErrors,
+                   // CorrectedText = aiMessage.CorrectedText,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _dbContext.Messages.AddAsync(aiDbMessage);
+                await _dbContext.SaveChangesAsync();
+
+                // 4️⃣ İstemcilere gönder
                 await Clients.Group(conversationId).SendAsync("ReceiveMessage", aiMessage);
             }
             catch (Exception ex)

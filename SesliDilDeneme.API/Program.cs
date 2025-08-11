@@ -80,7 +80,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend",
+    options.AddPolicy("AllowAll",
         policy => policy
             .WithOrigins("http://167.172.162.242:5000", "http://localhost") 
             .AllowAnyHeader()
@@ -101,7 +101,7 @@ using (var scope = app.Services.CreateScope())
 }
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseCors("AllowFrontend");
+app.UseCors("AllowAll");
 
 
 app.UseAuthentication(); // ÖNCE Authentication
