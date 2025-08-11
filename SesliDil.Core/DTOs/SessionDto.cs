@@ -10,11 +10,11 @@ namespace SesliDil.Core.DTOs
     {
         public string SessionId { get; set; }
         public string UserId { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
         public string AccessToken { get; set; }
         public string RefreshToken { get; set; }
-        public DateTime AccessTokenExpiresAt { get; set; }
-        public DateTime RefreshTokenExpiresAt { get; set; }
+        public DateTime? AccessTokenExpiresAt { get; set; }
+        public DateTime? RefreshTokenExpiresAt { get; set; }
     }
 
 }
