@@ -51,7 +51,16 @@ namespace SesliDilDeneme.API.Hubs
                     agentActivity.Stopwatch.Start();
 
                 _logger.LogInformation($"User {userId} started conversation {conversationId} with Agent {agentId} (ConnectionId: {Context.ConnectionId})");
+
+                // Burada frontend'e mesaj gönder
+                await Clients.Caller.SendAsync("Connected", $"Bağlantı başarılı. ConversationId: {conversationId}, UserId: {userId}, AgentId: {agentId}");
             }
+            else
+            {
+                // Eğer parametre eksikse burada da mesaj gönderebilirsin
+                await Clients.Caller.SendAsync("Connected", "Bağlantı başarılı, ancak parametreler eksik.");
+            }
+
             await base.OnConnectedAsync();
         }
 
