@@ -37,6 +37,7 @@ namespace SesliDil.Core.Mappings
             CreateMap<FileStorage, FileStorageDto>().ReverseMap();
             CreateMap<Session, SessionDto>().ReverseMap();
             CreateMap<Conversation, ConversationSummaryDto>().ReverseMap();
+            CreateMap<UserDailyActivityDto, UserDailyActivity>().ReverseMap();
 
         }
 
