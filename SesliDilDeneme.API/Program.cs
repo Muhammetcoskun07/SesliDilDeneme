@@ -35,6 +35,7 @@ builder.Services.AddScoped<TtsService>();
 builder.Services.AddHostedService<AudioCleanupService>();
 builder.Services.AddSingleton<AgentActivityService>();
 builder.Services.AddScoped<IUserDailyActivityService, UserDailyActivityService>();
+builder.Services.AddScoped<IAgentActivityStatsService, AgentActivityStatsService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
