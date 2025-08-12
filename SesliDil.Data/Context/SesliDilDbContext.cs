@@ -70,7 +70,7 @@ namespace SesliDil.Data.Context
             {
                 entity.ToTable("Message");
                 entity.HasKey(e => e.MessageId);
-                entity.Property(e => e.MessageId).ValueGeneratedOnAdd();
+                entity.Property(e => e.MessageId);
                 entity.Property(e => e.ConversationId).IsRequired().HasMaxLength(36);
                 entity.Property(e => e.Role).IsRequired().HasMaxLength(10);
                 entity.Property(e => e.Content).HasMaxLength(4000);
