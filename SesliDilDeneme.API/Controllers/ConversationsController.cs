@@ -141,17 +141,17 @@ namespace SesliDilDeneme.API.Controllers
             var summary = await _conversationService.GetSummaryByConversationIdAsync(id);
             return Ok(summary);
         }
-        [HttpPost("{id}/end")]
-        public async Task<IActionResult> EndConversation(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+        //[HttpPost("{id}/end")]
+        //public async Task<IActionResult> EndConversation(string id)
+        //{
+        //    if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
 
-            var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null) return NotFound();
+        //    var conversation = await _conversationService.GetByIdAsync<string>(id);
+        //    if (conversation == null) return NotFound();
 
-            await _conversationService.EndConversationAsync(id);
-            return NoContent();
-        }
+        //    await _conversationService.EndConversationAsync(id);
+        //    return NoContent();
+        //}
         [HttpPost("{id}/summary")]
         public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
         {
