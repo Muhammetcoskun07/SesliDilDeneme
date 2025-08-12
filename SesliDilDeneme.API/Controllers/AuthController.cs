@@ -10,6 +10,7 @@ using SesliDil.Core.DTOs;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Google.Apis.Auth.OAuth2.Requests;
+using SesliDil.Core.Responses; // <-- ApiResponse<T>
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -33,29 +34,30 @@ namespace SesliDilDeneme.API.Controllers
         {
             try
             {
-                var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
-                {
-                    Audience = new[] { _configuration["Google:ClientId"] }
-                });
+                var payload = await GoogleJsonWebSignature.ValidateAsync(
+                    request.IdToken,
+                    new GoogleJsonWebSignature.ValidationSettings
+                    {
+                        Audience = new[] { _configuration["Google:ClientId"] }
+                    });
 
                 if (string.IsNullOrEmpty(payload.Subject))
-                    return BadRequest("Invalid SocialId from Google token.");
+                    return BadRequest(new ApiResponse<object>("Giriş başarısız.", null, "InvalidSocialId"));
 
-                var socialId = payload.Subject.Length > 255 ? payload.Subject.Substring(0, 255) : payload.Subject;
-                var email = string.IsNullOrEmpty(payload.Email) ? $"{socialId}@google.local" : payload.Email.Length > 255 ? payload.Email.Substring(0, 255) : payload.Email;
-                var firstName = string.IsNullOrEmpty(payload.GivenName) ? "GoogleUser" : payload.GivenName.Length > 100 ? payload.GivenName.Substring(0, 100) : payload.GivenName;
-                var lastName = string.IsNullOrEmpty(payload.FamilyName) ? "GoogleLastName" : payload.FamilyName.Length > 100 ? payload.FamilyName.Substring(0, 100) : payload.FamilyName;
+                var socialId = payload.Subject.Length > 255 ? payload.Subject[..255] : payload.Subject;
+                var email = string.IsNullOrEmpty(payload.Email) ? $"{socialId}@google.local" : (payload.Email.Length > 255 ? payload.Email[..255] : payload.Email);
+                var firstName = string.IsNullOrEmpty(payload.GivenName) ? "GoogleUser" : (payload.GivenName.Length > 100 ? payload.GivenName[..100] : payload.GivenName);
+                var lastName = string.IsNullOrEmpty(payload.FamilyName) ? "GoogleLastName" : (payload.FamilyName.Length > 100 ? payload.FamilyName[..100] : payload.FamilyName);
 
                 var user = await _userService.GetOrCreateBySocialAsync("google", socialId, email, firstName, lastName);
-                if (user == null) return Unauthorized("User creation failed");
+                if (user == null)
+                    return Unauthorized(new ApiResponse<object>("Giriş başarısız.", null, "UserCreateFailed"));
 
-                // 🔐 JWT Token üretimi
-                var accessToken = GenerateJwtToken(user); // Bu zaten var
-                var refreshToken = Guid.NewGuid().ToString(); // Veya başka bir yöntemle üret
+                var accessToken = GenerateJwtToken(user);
+                var refreshToken = Guid.NewGuid().ToString();
                 var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(30);
                 var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
 
-                // 🆕 Session'ı Access/Refresh token'larla oluştur
                 await _sessionService.CreateAsync(new Session
                 {
                     SessionId = Guid.NewGuid().ToString(),
@@ -67,49 +69,39 @@ namespace SesliDilDeneme.API.Controllers
                     RefreshTokenExpiresAt = refreshTokenExpiresAt
                 });
 
-                // ✅ Geri dön
-                return Ok(new
-                {
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken,
-                    AccessTokenExpiresAt = accessTokenExpiresAt,
-                    RefreshTokenExpiresAt = refreshTokenExpiresAt,
-                    UserId = user.UserId,
-                    HasCompletedOnboarding = user.HasCompletedOnboarding
-                });
+                return Ok(new ApiResponse<object>(
+                    "Giriş başarılı.",
+                    new
+                    {
+                        accessToken,
+                        refreshToken,
+                        accessTokenExpiresAt,
+                        refreshTokenExpiresAt,
+                        userId = user.UserId,
+                        hasCompletedOnboarding = user.HasCompletedOnboarding
+                    }
+                ));
             }
             catch (DbUpdateException ex)
             {
-                var innerException = ex.InnerException?.Message ?? ex.Message;
-                Console.WriteLine($"DbUpdateException: {innerException}");
-                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new ApiResponse<object>("Veritabanı hatası.", null, inner));
             }
             catch (InvalidJwtException ex)
             {
-                return BadRequest(new { message = "Google token validation failed", error = ex.Message });
+                return BadRequest(new ApiResponse<object>("Google token doğrulaması başarısız.", null, ex.Message));
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"General error: {ex}");
-                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+                return StatusCode(500, new ApiResponse<object>("Sunucu hatası.", null, ex.Message));
             }
         }
-
-
-        [HttpPost("logout")]
-        public IActionResult Logout()
-        {
-            return Ok(new { message = "Logout successful." });
-        }
-
 
         [HttpPost("apple-login")]
         public async Task<IActionResult> AppleLogin([FromBody] AppleLoginRequest request)
         {
             try
             {
-                Console.WriteLine($"Frontend Data - Email: {request.Email}, FirstName: {request.FirstName}, LastName: {request.LastName}");
-
                 var handler = new JwtSecurityTokenHandler();
 
                 var appleKeysUrl = "https://appleid.apple.com/auth/keys";
@@ -134,41 +126,41 @@ namespace SesliDilDeneme.API.Controllers
                 var socialId = jwtToken.Subject;
 
                 if (string.IsNullOrEmpty(socialId))
-                    return Unauthorized("Apple ID token is invalid");
+                    return Unauthorized(new ApiResponse<object>("Giriş başarısız.", null, "InvalidAppleToken"));
 
                 var tokenEmail = principal.Claims.FirstOrDefault(c => c.Type == "email" ||
                     c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
-                var email = string.IsNullOrEmpty(request.Email) ? (string.IsNullOrEmpty(tokenEmail) ? $"{socialId}@apple.local" : tokenEmail) : request.Email;
+
+                var email = string.IsNullOrEmpty(request.Email)
+                    ? (string.IsNullOrEmpty(tokenEmail) ? $"{socialId}@apple.local" : tokenEmail)
+                    : request.Email;
+
                 if (!string.IsNullOrEmpty(tokenEmail) && !string.IsNullOrEmpty(request.Email) && tokenEmail != request.Email)
-                {
-                    Console.WriteLine($"Email mismatch: Token Email: {tokenEmail}, Frontend Email: {request.Email}");
-                    return BadRequest("Email in token does not match frontend-provided email.");
-                }
-                email = email.Length > 255 ? email.Substring(0, 255) : email;
+                    return BadRequest(new ApiResponse<object>("Email doğrulaması başarısız.", null, "EmailMismatch"));
+
+                email = email.Length > 255 ? email[..255] : email;
 
                 var firstName = string.IsNullOrEmpty(request.FirstName)
                     ? (principal.Claims.FirstOrDefault(c => c.Type == "given_name" ||
                         c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname")?.Value ?? "Guest")
                     : request.FirstName;
-                firstName = firstName.Length > 100 ? firstName.Substring(0, 100) : firstName;
+                firstName = firstName.Length > 100 ? firstName[..100] : firstName;
 
                 var lastName = string.IsNullOrEmpty(request.LastName)
                     ? (principal.Claims.FirstOrDefault(c => c.Type == "family_name" ||
                         c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname")?.Value ?? "User")
                     : request.LastName;
-                lastName = lastName.Length > 100 ? lastName.Substring(0, 100) : lastName;
+                lastName = lastName.Length > 100 ? lastName[..100] : lastName;
 
                 var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, email, firstName, lastName);
                 if (user == null)
-                    return Unauthorized("User creation failed");
+                    return Unauthorized(new ApiResponse<object>("Giriş başarısız.", null, "UserCreateFailed"));
 
-                //  JWT ve Refresh Token üretimi
                 var accessToken = GenerateJwtToken(user);
                 var refreshToken = Guid.NewGuid().ToString();
                 var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(30);
                 var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
 
-                //  Session kaydı
                 await _sessionService.CreateAsync(new Session
                 {
                     SessionId = Guid.NewGuid().ToString(),
@@ -180,38 +172,80 @@ namespace SesliDilDeneme.API.Controllers
                     RefreshTokenExpiresAt = refreshTokenExpiresAt
                 });
 
-                //  Response
-                return Ok(new
-                {
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken,
-                    AccessTokenExpiresAt = accessTokenExpiresAt,
-                    RefreshTokenExpiresAt = refreshTokenExpiresAt,
-                    UserId = user.UserId,
-                    HasCompletedOnboarding = user.HasCompletedOnboarding,
-                    Email = user.Email,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName
-                });
+                return Ok(new ApiResponse<object>(
+                    "Giriş başarılı.",
+                    new
+                    {
+                        accessToken,
+                        refreshToken,
+                        accessTokenExpiresAt,
+                        refreshTokenExpiresAt,
+                        userId = user.UserId,
+                        hasCompletedOnboarding = user.HasCompletedOnboarding,
+                        email = user.Email,
+                        firstName = user.FirstName,
+                        lastName = user.LastName
+                    }
+                ));
             }
             catch (SecurityTokenException ex)
             {
-                return BadRequest(new { message = "Apple token validation failed", error = ex.Message });
+                return BadRequest(new ApiResponse<object>("Apple token doğrulaması başarısız.", null, ex.Message));
             }
             catch (DbUpdateException ex)
             {
-                var innerException = ex.InnerException?.Message ?? ex.Message;
-                Console.WriteLine($"DbUpdateException: {innerException}");
-                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new ApiResponse<object>("Veritabanı hatası.", null, inner));
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"General error: {ex}");
-                return StatusCode(500, new { message = "Internal server error", error = ex.Message });
+                return StatusCode(500, new ApiResponse<object>("Sunucu hatası.", null, ex.Message));
             }
         }
 
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            var session = await _sessionService.GetByRefreshTokenAsync(request.RefreshToken);
 
+            if (session == null || session.RefreshTokenExpiresAt < DateTime.UtcNow)
+                return Unauthorized(new ApiResponse<object>("Refresh başarısız.", null, "InvalidOrExpiredRefreshToken"));
+
+            var user = await _userService.GetByIdAsync(session.UserId);
+            if (user == null)
+                return Unauthorized(new ApiResponse<object>("Refresh başarısız.", null, "UserNotFound"));
+
+            var newAccessToken = GenerateJwtToken(user);
+            var newAccessExp = DateTime.UtcNow.AddMinutes(30);
+
+            session.AccessToken = newAccessToken;
+            session.AccessTokenExpiresAt = newAccessExp;
+            await _sessionService.UpdateAsync(session);
+
+            return Ok(new ApiResponse<object>(
+                "Token yenilendi.",
+                new
+                {
+                    accessToken = newAccessToken,
+                    accessTokenExpiresAt = newAccessExp,
+                    refreshToken = session.RefreshToken,
+                    refreshTokenExpiresAt = session.RefreshTokenExpiresAt,
+                    userId = user.UserId,
+                    hasCompletedOnboarding = user.HasCompletedOnboarding
+                }
+            ));
+        }
+
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            return Ok(new ApiResponse<object>("Çıkış yapıldı.", null));
+        }
+
+        public class RefreshTokenRequest
+        {
+            public string RefreshToken { get; set; }
+        }
 
         private string GenerateJwtToken(User user)
         {
@@ -235,43 +269,5 @@ namespace SesliDilDeneme.API.Controllers
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
-
-        [HttpPost("refresh")]
-        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
-        {
-            var session = await _sessionService.GetByRefreshTokenAsync(request.RefreshToken);
-
-            if (session == null || session.RefreshTokenExpiresAt < DateTime.UtcNow)
-                return Unauthorized("Refresh token geçersiz veya süresi dolmuş.");
-
-            var user = await _userService.GetByIdAsync(session.UserId);
-            if (user == null)
-                return Unauthorized("Kullanıcı bulunamadı.");
-
-            var newAccessToken = GenerateJwtToken(user);
-            var newAccessExp = DateTime.UtcNow.AddMinutes(30);
-
-            session.AccessToken = newAccessToken;
-            session.AccessTokenExpiresAt = newAccessExp;
-            await _sessionService.UpdateAsync(session);
-
-            return Ok(new
-            {
-                AccessToken = newAccessToken,
-                AccessTokenExpiresAt = newAccessExp,
-                RefreshToken = session.RefreshToken,
-                RefreshTokenExpiresAt = session.RefreshTokenExpiresAt,
-                UserId = user.UserId,
-                HasCompletedOnboarding = user.HasCompletedOnboarding
-
-            });
-        }
-
-        public class RefreshTokenRequest
-        {
-            public string RefreshToken { get; set; }
-        }
-
-
     }
 }

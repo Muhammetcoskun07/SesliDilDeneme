@@ -1,12 +1,14 @@
 ﻿using AutoMapper;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
+using SesliDil.Core.Responses;
 using SesliDil.Data.Repositories;
 using SesliDil.Service.Services;
-using static System.Net.WebRequestMethods;
+using System.Linq;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -23,7 +25,6 @@ namespace SesliDilDeneme.API.Controllers
         private readonly IConfiguration _configuration;
         private readonly IRepository<Message> _messageRepository;
         private readonly IRepository<Conversation> _conversationRepository;
-
 
         public MessageController(
             MessageService messageService,
@@ -47,72 +48,76 @@ namespace SesliDilDeneme.API.Controllers
             _conversationRepository = conversationRepository;
         }
 
+        // -------- helper: validation hatalarını string'e çevir --------
+        private static string JoinValidationErrors(ValidationResult vr)
+            => string.Join("; ", vr.Errors.Select(e => $"{e.PropertyName}: {e.ErrorMessage}"));
+
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<MessageDto>>> GetAll()
+        public async Task<IActionResult> GetAll()
         {
             var messages = await _messageService.GetAllAsync();
-            return Ok(messages);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", messages, null));
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<MessageDto>> GetById(string id)
+        public async Task<IActionResult> GetById(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
-                return BadRequest("Invalid id");
+                return BadRequest(new ApiResponse<object>("Fail", null, "Invalid id"));
 
             var message = await _messageService.GetByIdAsync<string>(id);
             if (message == null)
-                return NotFound("Message not found");
+                return NotFound(new ApiResponse<object>("Fail", null, "Message not found"));
 
-            return Ok(message);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", message, null));
         }
 
         [HttpGet("conversation/{conversationId}")]
-        public async Task<ActionResult<IEnumerable<MessageDto>>> GetByConversationId(string conversationId)
+        public async Task<IActionResult> GetByConversationId(string conversationId)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
-                return BadRequest("Invalid conversation id");
+                return BadRequest(new ApiResponse<object>("Fail", null, "Invalid conversation id"));
 
             var messages = await _messageService.GetMessagesByConversationIdAsync(conversationId);
-            return Ok(messages);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", messages, null));
         }
+
         [HttpPost("speak")]
         public async Task<IActionResult> SpeakByMessageId([FromBody] SpeakByMessageIdRequest request)
         {
             if (string.IsNullOrWhiteSpace(request?.MessageId))
-                return BadRequest("MessageId is required.");
+                return BadRequest(new ApiResponse<object>("Fail", null, "MessageId is required."));
 
             var message = await _messageRepository.GetByIdAsync(request.MessageId);
             if (message == null)
-                return NotFound("Message not found.");
+                return NotFound(new ApiResponse<object>("Fail", null, "Message not found."));
 
-            // Mesajın conversationId'si ile user'ı bul
             var conversation = await _conversationRepository.GetByIdAsync(message.ConversationId);
             if (conversation == null)
-                return NotFound("Conversation not found.");
+                return NotFound(new ApiResponse<object>("Fail", null, "Conversation not found."));
 
             var user = await _userRepository.GetByIdAsync(conversation.UserId);
             if (user == null)
-                return NotFound("User not found.");
+                return NotFound(new ApiResponse<object>("Fail", null, "User not found."));
 
             if (string.IsNullOrWhiteSpace(user.TargetLanguage))
-                return BadRequest("User's target language is not set.");
+                return BadRequest(new ApiResponse<object>("Fail", null, "User's target language is not set."));
 
-            // Tüm sesler "alloy"
             var audioBytes = await _ttsService.ConvertTextToSpeechAsync(message.Content, "alloy");
             var relativeUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
 
             var baseUrl = _configuration["AppUrl"]?.TrimEnd('/') ?? "";
             var fullUrl = $"{baseUrl}{relativeUrl}";
 
-            return Ok(new { AudioUrl = fullUrl });
+            return Ok(new ApiResponse<object>("İşlem başarılı.", new { AudioUrl = fullUrl }, null));
         }
+
         [HttpPost]
-        public async Task<ActionResult<MessageDto>> Create([FromBody] MessageDto messageDto)
+        public async Task<IActionResult> Create([FromBody] MessageDto messageDto)
         {
             var validationResult = await _messageValidator.ValidateAsync(messageDto);
             if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
+                return BadRequest(new ApiResponse<object>("Fail", null, JoinValidationErrors(validationResult)));
 
             var message = new Message
             {
@@ -129,22 +134,27 @@ namespace SesliDilDeneme.API.Controllers
 
             await _messageService.CreateAsync(message);
             var messageDtoResponse = _mapper.Map<MessageDto>(message);
-            return CreatedAtAction(nameof(GetById), new { id = message.MessageId }, messageDtoResponse);
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = message.MessageId },
+                new ApiResponse<object>("İşlem başarılı.", messageDtoResponse, null)
+            );
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] MessageDto messageDto)
         {
             if (string.IsNullOrEmpty(id) || messageDto == null)
-                return BadRequest("Invalid input");
+                return BadRequest(new ApiResponse<object>("Fail", null, "Invalid input"));
 
             var validationResult = await _messageValidator.ValidateAsync(messageDto);
             if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
+                return BadRequest(new ApiResponse<object>("Fail", null, JoinValidationErrors(validationResult)));
 
             var message = await _messageService.GetByIdAsync<string>(id);
             if (message == null)
-                return NotFound("Message not found");
+                return NotFound(new ApiResponse<object>("Fail", null, "Message not found"));
 
             message.ConversationId = messageDto.ConversationId;
             message.Role = messageDto.Role;
@@ -154,42 +164,42 @@ namespace SesliDilDeneme.API.Controllers
             message.CreatedAt = DateTime.UtcNow;
 
             await _messageService.UpdateAsync(message);
-            return NoContent();
+            return Ok(new ApiResponse<object>("İşlem başarılı.", null, null));
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
             if (string.IsNullOrEmpty(id))
-                return BadRequest("Invalid id");
+                return BadRequest(new ApiResponse<object>("Fail", null, "Invalid id"));
 
             var message = await _messageService.GetByIdAsync<string>(id);
             if (message == null)
-                return NotFound("Message not found");
+                return NotFound(new ApiResponse<object>("Fail", null, "Message not found"));
 
             await _messageService.DeleteAsync(message);
-            return NoContent();
+            return Ok(new ApiResponse<object>("İşlem başarılı.", null, null));
         }
 
         [HttpPost("send")]
-        public async Task<ActionResult<MessageDto>> Send([FromBody] SendMessageRequest request)
+        public async Task<IActionResult> Send([FromBody] SendMessageRequest request)
         {
             var validationResult = await _sendMessageValidator.ValidateAsync(request);
             if (!validationResult.IsValid)
-                return BadRequest(validationResult.Errors);
+                return BadRequest(new ApiResponse<object>("Fail", null, JoinValidationErrors(validationResult)));
 
             try
             {
                 var response = await _messageService.SendMessageAsync(request);
-                return Ok(response);
+                return Ok(new ApiResponse<object>("İşlem başarılı.", response, null));
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new ApiResponse<object>("Fail", null, ex.Message));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new ApiResponse<object>("Fail", null, ex.Message));
             }
         }
 
@@ -197,31 +207,31 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<IActionResult> GetTranslatedMessage([FromQuery] string messageId)
         {
             if (string.IsNullOrWhiteSpace(messageId))
-                return BadRequest("MessageId is required");
+                return BadRequest(new ApiResponse<object>("Fail", null, "MessageId is required"));
 
             var message = await _messageService.GetByIdAsync(messageId);
             if (message == null)
-                return NotFound("Message not found");
+                return NotFound(new ApiResponse<object>("Fail", null, "Message not found"));
 
             var response = new TranslatedContentResponse
             {
                 TranslatedContent = message.TranslatedContent
             };
 
-            return Ok(response);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", response, null));
         }
 
         [HttpGet("{messageId}/grammar-errors")]
         public async Task<IActionResult> GetGrammarErrors(string messageId)
         {
             if (string.IsNullOrWhiteSpace(messageId))
-                return BadRequest("MessageId is required");
+                return BadRequest(new ApiResponse<object>("Fail", null, "MessageId is required"));
 
             var message = await _messageService.GetByIdAsync(messageId);
             if (message == null)
-                return NotFound("Message not found");
+                return NotFound(new ApiResponse<object>("Fail", null, "Message not found"));
 
-            return Ok(message.GrammarErrors);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", message.GrammarErrors, null));
         }
     }
 }
