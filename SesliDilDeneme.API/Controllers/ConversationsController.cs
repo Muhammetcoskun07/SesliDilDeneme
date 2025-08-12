@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
-using SesliDil.Service.Interfaces;
 using SesliDil.Service.Services;
+using SesliDil.Core.Responses;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -15,7 +15,11 @@ namespace SesliDilDeneme.API.Controllers
         private readonly AgentActivityService _agentActivityService;
         private readonly ILogger<ConversationsController> _logger;
 
-        public ConversationsController(ConversationService conversationService, UserService userService, AgentActivityService agentActivityService, ILogger<ConversationsController> logger)
+        public ConversationsController(
+            ConversationService conversationService,
+            UserService userService,
+            AgentActivityService agentActivityService,
+            ILogger<ConversationsController> logger)
         {
             _conversationService = conversationService;
             _userService = userService;
@@ -24,41 +28,44 @@ namespace SesliDilDeneme.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ConversationDto>>> GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var conversations = await _conversationService.GetAllAsync();
-            return Ok(conversations);
+            var conversations = await _conversationService.GetAllAsync(); // muhtemelen IEnumerable<Conversation>
+            return Ok(new ApiResponse<object>("İşlem başarılı.", conversations));
         }
 
         [HttpGet("id/{id}")]
-        public async Task<ActionResult<ConversationDto>> GetById(string id)
+        public async Task<IActionResult> GetById(string id)
         {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (string.IsNullOrEmpty(id))
+                return BadRequest(new ApiResponse<object>("Invalid id", null));
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null) return NotFound();
+            if (conversation == null)
+                return NotFound(new ApiResponse<object>("Not found", null));
 
-            return Ok(conversation);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", conversation));
         }
 
         [HttpGet("user/{userId}")]
-        public async Task<ActionResult<IEnumerable<ConversationDto>>> GetByUserId(string userId)
+        public async Task<IActionResult> GetByUserId(string userId)
         {
-            if (string.IsNullOrEmpty(userId)) return BadRequest("Invalid userId");
+            if (string.IsNullOrEmpty(userId))
+                return BadRequest(new ApiResponse<object>("Invalid userId", null));
 
             var conversations = await _conversationService.GetByUserIdAsync(userId);
-            return Ok(conversations);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", conversations));
         }
 
         [HttpPost]
-        public async Task<ActionResult<ConversationDto>> Create([FromBody] CreateConversationDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateConversationDto dto)
         {
             if (dto == null || string.IsNullOrEmpty(dto.UserId))
-                return BadRequest("Invalid conversation data");
+                return BadRequest(new ApiResponse<object>("Invalid conversation data", null));
 
             var user = await _userService.GetByIdAsync(dto.UserId);
             if (user == null)
-                return BadRequest("User not found");
+                return BadRequest(new ApiResponse<object>("User not found", null));
 
             var conversation = new Conversation
             {
@@ -75,101 +82,110 @@ namespace SesliDilDeneme.API.Controllers
 
             var responseDto = new ConversationDto
             {
-               ConversationId=conversation.ConversationId,
+                ConversationId = conversation.ConversationId,
                 UserId = conversation.UserId,
                 AgentId = conversation.AgentId,
                 Title = conversation.Title,
-               // DurationMinutes = null,
-                //Summary = null
+                DurationMinutes = conversation.DurationMinutes
             };
 
-            return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, responseDto);
+            return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId },
+                new ApiResponse<object>("İşlem başarılı.", responseDto));
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] ConversationDto conversationDto)
         {
             if (string.IsNullOrEmpty(id) || conversationDto == null)
-                return BadRequest("Invalid input");
+                return BadRequest(new ApiResponse<object>("Invalid input", null));
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null) return NotFound();
+            if (conversation == null)
+                return NotFound(new ApiResponse<object>("Not found", null));
 
             var user = await _userService.GetByIdAsync(conversationDto.UserId);
-            if (user == null) return BadRequest("User not found");
+            if (user == null)
+                return BadRequest(new ApiResponse<object>("User not found", null));
 
             conversation.UserId = conversationDto.UserId;
             conversation.AgentId = conversationDto.AgentId;
             conversation.Title = conversationDto.Title;
-           // conversation.Status = conversationDto.Status;
-            conversation.Language = user.TargetLanguage; // Güncelleme sırasında da kullanıcıdan alınmalı
+            conversation.Language = user.TargetLanguage;
             conversation.DurationMinutes = conversationDto.DurationMinutes;
 
             await _conversationService.UpdateAsync(conversation);
-            return NoContent();
+            return Ok(new ApiResponse<object>("İşlem başarılı.", null));
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (string.IsNullOrEmpty(id))
+                return BadRequest(new ApiResponse<object>("Invalid id", null));
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null) return NotFound();
+            if (conversation == null)
+                return NotFound(new ApiResponse<object>("Not found", null));
 
             await _conversationService.DeleteAsync(conversation);
-            return NoContent();
+            return Ok(new ApiResponse<object>("İşlem başarılı.", null));
         }
 
         [HttpGet("{id}/duration")]
-        public async Task<ActionResult<double>> GetDuration(string id)
+        public async Task<IActionResult> GetDuration(string id)
         {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (string.IsNullOrEmpty(id))
+                return BadRequest(new ApiResponse<object>("Invalid id", null));
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null) return NotFound();
+            if (conversation == null)
+                return NotFound(new ApiResponse<object>("Not found", null));
 
-            return Ok(conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes);
+            var minutes = conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes;
+            return Ok(new ApiResponse<object>("İşlem başarılı.", minutes));
         }
 
-        //  Summary Get
         [HttpGet("{id}/summary")]
-        public async Task<ActionResult<ConversationSummaryDto>> GetSummary(string id )
+        public async Task<IActionResult> GetSummary(string id)
         {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (string.IsNullOrEmpty(id))
+                return BadRequest(new ApiResponse<object>("Invalid id", null));
 
             var summary = await _conversationService.GetSummaryByConversationIdAsync(id);
-            return Ok(summary);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", summary));
         }
+
         [HttpPost("{id}/end")]
         public async Task<IActionResult> EndConversation(string id)
         {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (string.IsNullOrEmpty(id))
+                return BadRequest(new ApiResponse<object>("Invalid id", null));
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null) return NotFound();
+            if (conversation == null)
+                return NotFound(new ApiResponse<object>("Not found", null));
 
             await _conversationService.EndConversationAsync(id);
-            return NoContent();
+            return Ok(new ApiResponse<object>("İşlem başarılı.", null));
         }
+
         [HttpPost("{id}/summary")]
         public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
         {
             if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(summary))
-                return BadRequest("Geçersiz giriş");
+                return BadRequest(new ApiResponse<object>("Geçersiz giriş", null));
 
             try
             {
                 await _conversationService.SaveSummaryAsync(id, summary);
-                return Ok();
+                return Ok(new ApiResponse<object>("İşlem başarılı.", null));
             }
             catch (Exception ex)
             {
-                // Hata burada loglanabilir (isteğe bağlı)
-                return StatusCode(500, $"Hata: {ex.Message}"); // Daha açıklayıcı hata mesajı
+                return StatusCode(500, new ApiResponse<object>("Hata oluştu", null, ex.Message));
             }
         }
-        // GET: api/conversations/summary/computed/{conversationId}?samples=3&highlights=3
+
         [HttpGet("summary/computed/{conversationId}")]
         public async Task<IActionResult> GetComputedSummary(
             string conversationId,
@@ -177,8 +193,7 @@ namespace SesliDilDeneme.API.Controllers
             [FromQuery] int highlights = 3)
         {
             var dto = await _conversationService.BuildConversationSummaryComputedAsync(conversationId, samples, highlights);
-            return Ok(dto);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", dto));
         }
-
     }
 }
