@@ -41,28 +41,40 @@ namespace SesliDilDeneme.API.Hubs
 
             if (!string.IsNullOrEmpty(conversationId) && !string.IsNullOrEmpty(userId) && !string.IsNullOrEmpty(agentId))
             {
+                // Gruba ekle
                 await Groups.AddToGroupAsync(Context.ConnectionId, conversationId);
 
-                var usersDict = _agentActivityService.ActivityData.GetOrAdd(conversationId, _ => new ConcurrentDictionary<string, ConcurrentDictionary<string, AgentActivity>>());
-                var agentsDict = usersDict.GetOrAdd(userId, _ => new ConcurrentDictionary<string, AgentActivity>());
+                // Aktivite servisi güncelle
+                var usersDict = _agentActivityService.ActivityData
+                    .GetOrAdd(conversationId, _ => new ConcurrentDictionary<string, ConcurrentDictionary<string, AgentActivity>>());
+
+                var agentsDict = usersDict
+                    .GetOrAdd(userId, _ => new ConcurrentDictionary<string, AgentActivity>());
+
                 var agentActivity = agentsDict.GetOrAdd(agentId, _ => new AgentActivity());
 
                 if (!agentActivity.Stopwatch.IsRunning)
                     agentActivity.Stopwatch.Start();
 
-                _logger.LogInformation($"User {userId} started conversation {conversationId} with Agent {agentId} (ConnectionId: {Context.ConnectionId})");
+                _logger.LogInformation($"User {userId} joined conversation {conversationId} with Agent {agentId}");
 
-                // Burada frontend'e mesaj gönder
-                await Clients.Caller.SendAsync("Connected", $"Bağlantı başarılı. ConversationId: {conversationId}, UserId: {userId}, AgentId: {agentId}");
+                await Clients.Caller.SendAsync("Connected", new
+                {
+                    Message = "Bağlantı başarılı",
+                    ConversationId = conversationId,
+                    UserId = userId,
+                    AgentId = agentId
+                });
             }
             else
             {
-                // Eğer parametre eksikse burada da mesaj gönderebilirsin
-                await Clients.Caller.SendAsync("Connected", "Bağlantı başarılı, ancak parametreler eksik.");
+                _logger.LogWarning("OnConnectedAsync: Eksik parametre.");
+                await Clients.Caller.SendAsync("Error", "Eksik parametreler.");
             }
 
             await base.OnConnectedAsync();
         }
+
 
 
         public override async Task OnDisconnectedAsync(Exception exception)
@@ -261,34 +273,29 @@ namespace SesliDilDeneme.API.Hubs
         }
         public async Task SendMessage(string conversationId, string userId, string agentId, string content)
         {
-            _logger.LogInformation($"Received SendMessage: conversationId={conversationId}, userId={userId}, agentId={agentId}, content={content}");
+            _logger.LogInformation($"SendMessage called: {conversationId}, {userId}, {agentId}, {content}");
 
             if (string.IsNullOrWhiteSpace(conversationId) ||
                 string.IsNullOrWhiteSpace(userId) ||
                 string.IsNullOrWhiteSpace(agentId) ||
                 string.IsNullOrWhiteSpace(content))
             {
-                _logger.LogWarning("SendMessage: One or more required parameters are missing.");
-                await Clients.Caller.SendAsync("Error", "SendMessage: One or more required parameters are missing.");
+                await Clients.Caller.SendAsync("Error", "Eksik parametreler.");
                 return;
             }
 
-            var activityData = _agentActivityService.ActivityData;
-
-            if (activityData.TryGetValue(conversationId, out var usersDict) &&
+            // Aktivite sayacı
+            if (_agentActivityService.ActivityData.TryGetValue(conversationId, out var usersDict) &&
                 usersDict.TryGetValue(userId, out var agentsDict) &&
                 agentsDict.TryGetValue(agentId, out var agentActivity))
             {
                 agentActivity.MessageCount++;
-
-                // Kelime sayısını hesapla
-                int wordCount = CountWords(content);
-                agentActivity.WordCount += wordCount;
+                agentActivity.WordCount += CountWords(content);
             }
 
             try
             {
-                // 1️⃣ Kullanıcı mesajını DB'ye ekle
+                // Kullanıcı mesajını DB'ye ekle
                 var userMessage = new Message
                 {
                     MessageId = Guid.NewGuid().ToString(),
@@ -298,10 +305,11 @@ namespace SesliDilDeneme.API.Hubs
                     Content = content,
                     CreatedAt = DateTime.UtcNow
                 };
+
                 await _dbContext.Messages.AddAsync(userMessage);
                 await _dbContext.SaveChangesAsync();
 
-                // 2️⃣ AI cevabını al
+                // AI cevabını al
                 var request = new SendMessageRequest
                 {
                     ConversationId = conversationId,
@@ -309,18 +317,17 @@ namespace SesliDilDeneme.API.Hubs
                     AgentId = agentId,
                     Content = content
                 };
-                _logger.LogInformation(
-            "SendMessageAsync -> ConversationId={ConversationId}, UserId={UserId}, AgentId={AgentId}, Content={Content}",
-                request.ConversationId,
-               request.UserId,
-                request.AgentId,
-            request.Content
-);
-
 
                 var aiMessage = await _messageService.SendMessageAsync(request);
 
-                // 3️⃣ AI cevabını DB'ye ekle
+                if (aiMessage == null)
+                {
+                    _logger.LogWarning("AI cevabı boş döndü.");
+                    await Clients.Caller.SendAsync("Error", "AI cevabı alınamadı.");
+                    return;
+                }
+
+                // AI mesajını DB'ye ekle
                 var aiDbMessage = new Message
                 {
                     MessageId = Guid.NewGuid().ToString(),
@@ -331,19 +338,27 @@ namespace SesliDilDeneme.API.Hubs
                     TranslatedContent = aiMessage.TranslatedContent,
                     AudioUrl = aiMessage.AudioUrl,
                     GrammarErrors = aiMessage.GrammarErrors,
-                   // CorrectedText = aiMessage.CorrectedText,
                     CreatedAt = DateTime.UtcNow
                 };
+
                 await _dbContext.Messages.AddAsync(aiDbMessage);
                 await _dbContext.SaveChangesAsync();
 
-                // 4️⃣ İstemcilere gönder
-                await Clients.Group(conversationId).SendAsync("ReceiveMessage", aiMessage);
+                // AI cevabını istemcilere gönder
+                await Clients.Group(conversationId).SendAsync("ReceiveMessage", new
+                {
+                    sender = "AI",
+                    text = aiMessage.Content,
+                    translatedText = aiMessage.TranslatedContent,
+                    audioUrl = aiMessage.AudioUrl,
+                    grammarErrors = aiMessage.GrammarErrors
+                });
+
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in SendMessage");
-                await Clients.Caller.SendAsync("Error", $"Failed to send message: {ex.Message}");
+                _logger.LogError(ex, "SendMessage sırasında hata oluştu.");
+                await Clients.Caller.SendAsync("Error", "Mesaj gönderilirken hata oluştu: " + ex.Message);
             }
         }
         private int CountWords(string text)
