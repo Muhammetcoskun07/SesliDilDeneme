@@ -273,92 +273,114 @@ namespace SesliDilDeneme.API.Hubs
         }
         public async Task SendMessage(string conversationId, string userId, string agentId, string content)
         {
-            _logger.LogInformation($"SendMessage called: {conversationId}, {userId}, {agentId}, {content}");
+            _logger.LogInformation($"SendMessage: conversationId={conversationId}, userId={userId}, agentId={agentId}, content={content}");
 
+            // Validate input parameters
             if (string.IsNullOrWhiteSpace(conversationId) ||
                 string.IsNullOrWhiteSpace(userId) ||
                 string.IsNullOrWhiteSpace(agentId) ||
                 string.IsNullOrWhiteSpace(content))
             {
-                await Clients.Caller.SendAsync("Error", "Eksik parametreler.");
+                _logger.LogWarning("SendMessage: One or more required parameters are missing.");
+                await Clients.Caller.SendAsync("Error", "Missing or invalid parameters.");
                 return;
-            }
-
-            // Aktivite sayacı
-            if (_agentActivityService.ActivityData.TryGetValue(conversationId, out var usersDict) &&
-                usersDict.TryGetValue(userId, out var agentsDict) &&
-                agentsDict.TryGetValue(agentId, out var agentActivity))
-            {
-                agentActivity.MessageCount++;
-                agentActivity.WordCount += CountWords(content);
             }
 
             try
             {
-                // Kullanıcı mesajını DB'ye ekle
-                var userMessage = new Message
+                // Check and initialize activity data
+                var activityData = _agentActivityService.ActivityData;
+                var usersDict = activityData.GetOrAdd(conversationId, _ => new ConcurrentDictionary<string, ConcurrentDictionary<string, AgentActivity>>());
+                var agentsDict = usersDict.GetOrAdd(userId, _ => new ConcurrentDictionary<string, AgentActivity>());
+                var agentActivity = agentsDict.GetOrAdd(agentId, _ => new AgentActivity());
+
+                // Ensure stopwatch is running
+                if (!agentActivity.Stopwatch.IsRunning)
                 {
-                    MessageId = Guid.NewGuid().ToString(),
-                    ConversationId = conversationId,
-                    Role = "user",
-                    SpeakerType = "user",
-                    Content = content,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await _dbContext.Messages.AddAsync(userMessage);
-                await _dbContext.SaveChangesAsync();
-
-                // AI cevabını al
-                var request = new SendMessageRequest
-                {
-                    ConversationId = conversationId,
-                    UserId = userId,
-                    AgentId = agentId,
-                    Content = content
-                };
-
-                var aiMessage = await _messageService.SendMessageAsync(request);
-
-                if (aiMessage == null)
-                {
-                    _logger.LogWarning("AI cevabı boş döndü.");
-                    await Clients.Caller.SendAsync("Error", "AI cevabı alınamadı.");
-                    return;
+                    agentActivity.Stopwatch.Start();
+                    _logger.LogInformation($"Started stopwatch for agentActivity: conversationId={conversationId}, userId={userId}, agentId={agentId}");
                 }
 
-                // AI mesajını DB'ye ekle
-                var aiDbMessage = new Message
+                // Update message and word counts
+                agentActivity.MessageCount++;
+                int wordCount = CountWords(content);
+                agentActivity.WordCount += wordCount;
+                _logger.LogInformation($"Updated agentActivity: MessageCount={agentActivity.MessageCount}, WordCount={agentActivity.WordCount}");
+
+                // Database transaction
+                using var transaction = await _dbContext.Database.BeginTransactionAsync();
+                try
                 {
-                    MessageId = Guid.NewGuid().ToString(),
-                    ConversationId = conversationId,
-                    Role = "ai",
-                    SpeakerType = "ai",
-                    Content = aiMessage.Content,
-                    TranslatedContent = aiMessage.TranslatedContent,
-                    AudioUrl = aiMessage.AudioUrl,
-                    GrammarErrors = aiMessage.GrammarErrors,
-                    CreatedAt = DateTime.UtcNow
-                };
+                    // 1️⃣ Add user message to DB
+                    var userMessage = new Message
+                    {
+                        MessageId = Guid.NewGuid().ToString(),
+                        ConversationId = conversationId,
+                        Role = "user",
+                        SpeakerType = "user",
+                        Content = content,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _dbContext.Messages.AddAsync(userMessage);
+                    await _dbContext.SaveChangesAsync();
+                    _logger.LogInformation($"Saved user message: MessageId={userMessage.MessageId}");
 
-                await _dbContext.Messages.AddAsync(aiDbMessage);
-                await _dbContext.SaveChangesAsync();
+                    // 2️⃣ Get AI response
+                    var request = new SendMessageRequest
+                    {
+                        ConversationId = conversationId,
+                        UserId = userId,
+                        AgentId = agentId,
+                        Content = content
+                    };
+                    _logger.LogInformation($"Calling SendMessageAsync: conversationId={conversationId}, userId={userId}, agentId={agentId}");
 
-                // AI cevabını istemcilere gönder
-                await Clients.Group(conversationId).SendAsync("ReceiveMessage", new
+                    var aiMessage = await _messageService.SendMessageAsync(request);
+                    if (aiMessage == null || string.IsNullOrWhiteSpace(aiMessage.Content))
+                    {
+                        _logger.LogError("SendMessageAsync returned null or empty response.");
+                        await Clients.Caller.SendAsync("Error", "Failed to generate AI response.");
+                        await transaction.RollbackAsync();
+                        return;
+                    }
+                    _logger.LogInformation($"Received AI response: Content={aiMessage.Content}");
+
+                    // 3️⃣ Add AI message to DB
+                    var aiDbMessage = new Message
+                    {
+                        MessageId = Guid.NewGuid().ToString(),
+                        ConversationId = conversationId,
+                        Role = "ai",
+                        SpeakerType = "ai",
+                        Content = aiMessage.Content,
+                        TranslatedContent = aiMessage.TranslatedContent,
+                        AudioUrl = aiMessage.AudioUrl,
+                        GrammarErrors = aiMessage.GrammarErrors,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _dbContext.Messages.AddAsync(aiDbMessage);
+                    await _dbContext.SaveChangesAsync();
+                    _logger.LogInformation($"Saved AI message: MessageId={aiDbMessage.MessageId}");
+
+                    // Commit transaction
+                    await transaction.CommitAsync();
+
+                    // 4️⃣ Send to clients
+                    await Clients.Group(conversationId).SendAsync("ReceiveMessage", aiMessage);
+                    _logger.LogInformation($"Sent AI message to group: conversationId={conversationId}");
+                }
+                catch (Exception ex)
                 {
-                    sender = "AI",
-                    text = aiMessage.Content,
-                    translatedText = aiMessage.TranslatedContent,
-                    audioUrl = aiMessage.AudioUrl,
-                    grammarErrors = aiMessage.GrammarErrors
-                });
-
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, $"Error in SendMessage transaction: conversationId={conversationId}, userId={userId}, agentId={agentId}");
+                    await Clients.Caller.SendAsync("Error", $"Failed to process message: {ex.Message}");
+                    return;
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "SendMessage sırasında hata oluştu.");
-                await Clients.Caller.SendAsync("Error", "Mesaj gönderilirken hata oluştu: " + ex.Message);
+                _logger.LogError(ex, $"Unexpected error in SendMessage: conversationId={conversationId}, userId={userId}, agentId={agentId}");
+                await Clients.Caller.SendAsync("Error", $"Unexpected error: {ex.Message}");
             }
         }
         private int CountWords(string text)
