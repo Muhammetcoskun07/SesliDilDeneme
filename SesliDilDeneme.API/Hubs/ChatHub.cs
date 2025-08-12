@@ -307,75 +307,59 @@ namespace SesliDilDeneme.API.Hubs
                 agentActivity.WordCount += wordCount;
                 _logger.LogInformation($"Updated agentActivity: MessageCount={agentActivity.MessageCount}, WordCount={agentActivity.WordCount}");
 
-                // Database transaction
-                using var transaction = await _dbContext.Database.BeginTransactionAsync();
-                try
+                // 1️⃣ Add user message to DB
+                var userMessage = new Message
                 {
-                    // 1️⃣ Add user message to DB
-                    var userMessage = new Message
-                    {
-                        MessageId = Guid.NewGuid().ToString(),
-                        ConversationId = conversationId,
-                        Role = "user",
-                        SpeakerType = "user",
-                        Content = content,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _dbContext.Messages.AddAsync(userMessage);
-                    await _dbContext.SaveChangesAsync();
-                    _logger.LogInformation($"Saved user message: MessageId={userMessage.MessageId}");
+                    MessageId = Guid.NewGuid().ToString(),
+                    ConversationId = conversationId,
+                    Role = "user",
+                    SpeakerType = "user",
+                    Content = content,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _dbContext.Messages.AddAsync(userMessage);
+                await _dbContext.SaveChangesAsync();
+                _logger.LogInformation($"Saved user message: MessageId={userMessage.MessageId}");
 
-                    // 2️⃣ Get AI response
-                    var request = new SendMessageRequest
-                    {
-                        ConversationId = conversationId,
-                        UserId = userId,
-                        AgentId = agentId,
-                        Content = content
-                    };
-                    _logger.LogInformation($"Calling SendMessageAsync: conversationId={conversationId}, userId={userId}, agentId={agentId}");
-
-                    var aiMessage = await _messageService.SendMessageAsync(request);
-                    if (aiMessage == null || string.IsNullOrWhiteSpace(aiMessage.Content))
-                    {
-                        _logger.LogError("SendMessageAsync returned null or empty response.");
-                        await Clients.Caller.SendAsync("Error", "Failed to generate AI response.");
-                        await transaction.RollbackAsync();
-                        return;
-                    }
-                    _logger.LogInformation($"Received AI response: Content={aiMessage.Content}");
-
-                    // 3️⃣ Add AI message to DB
-                    var aiDbMessage = new Message
-                    {
-                        MessageId = Guid.NewGuid().ToString(),
-                        ConversationId = conversationId,
-                        Role = "ai",
-                        SpeakerType = "ai",
-                        Content = aiMessage.Content,
-                        TranslatedContent = aiMessage.TranslatedContent,
-                        AudioUrl = aiMessage.AudioUrl,
-                        GrammarErrors = aiMessage.GrammarErrors,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await _dbContext.Messages.AddAsync(aiDbMessage);
-                    await _dbContext.SaveChangesAsync();
-                    _logger.LogInformation($"Saved AI message: MessageId={aiDbMessage.MessageId}");
-
-                    // Commit transaction
-                    await transaction.CommitAsync();
-
-                    // 4️⃣ Send to clients
-                    await Clients.Group(conversationId).SendAsync("ReceiveMessage", aiMessage);
-                    _logger.LogInformation($"Sent AI message to group: conversationId={conversationId}");
-                }
-                catch (Exception ex)
+                // 2️⃣ Get AI response
+                var request = new SendMessageRequest
                 {
-                    await transaction.RollbackAsync();
-                    _logger.LogError(ex, $"Error in SendMessage transaction: conversationId={conversationId}, userId={userId}, agentId={agentId}");
-                    await Clients.Caller.SendAsync("Error", $"Failed to process message: {ex.Message}");
+                    ConversationId = conversationId,
+                    UserId = userId,
+                    AgentId = agentId,
+                    Content = content
+                };
+                _logger.LogInformation($"Calling SendMessageAsync: conversationId={conversationId}, userId={userId}, agentId={agentId}");
+
+                var aiMessage = await _messageService.SendMessageAsync(request);
+                if (aiMessage == null || string.IsNullOrWhiteSpace(aiMessage.Content))
+                {
+                    _logger.LogError("SendMessageAsync returned null or empty response.");
+                    await Clients.Caller.SendAsync("Error", "Failed to generate AI response.");
                     return;
                 }
+                _logger.LogInformation($"Received AI response: Content={aiMessage.Content}");
+
+                // 3️⃣ Add AI message to DB
+                var aiDbMessage = new Message
+                {
+                    MessageId = Guid.NewGuid().ToString(),
+                    ConversationId = conversationId,
+                    Role = "ai",
+                    SpeakerType = "ai",
+                    Content = aiMessage.Content,
+                    TranslatedContent = aiMessage.TranslatedContent,
+                    AudioUrl = aiMessage.AudioUrl,
+                    GrammarErrors = aiMessage.GrammarErrors,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _dbContext.Messages.AddAsync(aiDbMessage);
+                await _dbContext.SaveChangesAsync();
+                _logger.LogInformation($"Saved AI message: MessageId={aiDbMessage.MessageId}");
+
+                // 4️⃣ Send to clients
+                await Clients.Group(conversationId).SendAsync("ReceiveMessage", aiMessage);
+                _logger.LogInformation($"Sent AI message to group: conversationId={conversationId}");
             }
             catch (Exception ex)
             {
