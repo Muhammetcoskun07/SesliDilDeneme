@@ -110,7 +110,40 @@ namespace SesliDil.Service.Services
 
             return 0; // Bilinmeyen hedef için 0 döner
         }
+        public async Task<UserAgentStatsDto> GetUserAgentStatsAsync(string userId, string agentId)
+        {
+            var activities = await _context.ConversationAgentActivities
+                .Where(a => a.UserId == userId && a.AgentId == agentId)
+                .ToListAsync();
 
+            if (!activities.Any())
+                return new UserAgentStatsDto(); // boş dönebilir
+
+            return new UserAgentStatsDto
+            {
+                TotalMinutes = activities.Sum(a => a.Duration.TotalMinutes),
+                TotalMessages = activities.Sum(a => a.MessageCount),
+                TotalWords = activities.Sum(a => a.WordCount),
+                AverageWPM = activities.Average(a => a.WordsPerMinute)
+            };
+        }
+        public async Task<List<UserAgentStatsDto>> GetUserAllAgentStatsAsync(string userId)
+        {
+            var query = await _context.ConversationAgentActivities
+                .Where(a => a.UserId == userId)
+                .GroupBy(a => a.AgentId)
+                .Select(g => new UserAgentStatsDto
+                {
+                    AgentId = g.Key,
+                    TotalMinutes = g.Sum(x => x.Duration.TotalMinutes),
+                    TotalMessages = g.Sum(x => x.MessageCount),
+                    TotalWords = g.Sum(x => x.WordCount),
+                    AverageWPM = g.Average(x => x.WordsPerMinute)
+                })
+                .ToListAsync();
+
+            return query;
+        }
 
 
 

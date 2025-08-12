@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
+using SesliDil.Service.Interfaces;
 using SesliDil.Service.Services;
 
 namespace SesliDilDeneme.API.Controllers
@@ -12,11 +13,13 @@ namespace SesliDilDeneme.API.Controllers
     {
         private readonly IRepository<ConversationAgentActivity> _activityRepository; // veya Service
         private readonly ILogger<AgentActivitiesController> _logger;
+        private readonly IAgentActivityStatsService _statsService;
 
-        public AgentActivitiesController(IRepository<ConversationAgentActivity> activityRepository, ILogger<AgentActivitiesController> logger)
+        public AgentActivitiesController(IRepository<ConversationAgentActivity> activityRepository, ILogger<AgentActivitiesController> logger,IAgentActivityStatsService statsService)
         {
             _activityRepository = activityRepository;
             _logger = logger;
+            _statsService = statsService;
         }
 
         [HttpGet("{activityId}")]
@@ -56,6 +59,20 @@ namespace SesliDilDeneme.API.Controllers
                 return NotFound();
 
             return Ok(activities);
+        }
+        [HttpGet("stats/{userId}")]
+        public async Task<IActionResult> GetUserAllAgentStats(string userId)
+        {
+            var stats = await _statsService.GetUserAllAgentStatsAsync(userId);
+            return Ok(stats);
+        }
+
+        [HttpGet("stats/{userId}/{agentId}")]
+        public async Task<IActionResult> GetAgentStats(string userId, string agentId)
+        {
+            var stat = await _statsService.GetAgentStatsForUserAsync(userId, agentId);
+            if (stat == null) return NotFound();
+            return Ok(stat);
         }
 
     }
