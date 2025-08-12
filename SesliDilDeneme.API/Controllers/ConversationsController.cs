@@ -155,20 +155,20 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new ApiResponse<object>("İşlem başarılı.", summary));
         }
 
-        [HttpPost("{id}/end")]
-        public async Task<IActionResult> EndConversation(string id)
-        {
-            if (string.IsNullOrEmpty(id))
-                return BadRequest(new ApiResponse<object>("Invalid id", null));
+        //[HttpPost("{id}/end")]
+        //public async Task<IActionResult> EndConversation(string id)
+        //{
+        //    if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
 
-            var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null)
-                return NotFound(new ApiResponse<object>("Not found", null));
+        //    var conversation = await _conversationService.GetByIdAsync<string>(id);
+        //    if (conversation == null) return NotFound();
 
-            await _conversationService.EndConversationAsync(id);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", null));
-        }
+        //    await _conversationService.EndConversationAsync(id);
+        //    return NoContent();
+        //}
 
+
+       
         [HttpPost("{id}/summary")]
         public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
         {
