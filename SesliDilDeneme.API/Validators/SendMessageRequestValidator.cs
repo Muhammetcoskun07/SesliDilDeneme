@@ -13,6 +13,11 @@ namespace SesliDilDeneme.API.Validators
             RuleFor(x => x.AgentId)
                 .NotEmpty().WithMessage("AgentId is required");
 
+            RuleFor(x => x.UserId)
+                .NotEmpty().WithMessage("UserId is required");
+
+            RuleFor(x => x.ConversationId)
+                .NotEmpty().WithMessage("ConversationId is required");
         }
     }
    
