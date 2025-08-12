@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
@@ -26,6 +27,7 @@ namespace SesliDil.Service.Services
         private readonly IRepository<AIAgent> _agentRepository;
         private readonly IRepository<User> _userRepository;
         private readonly TtsService _ttsService;
+        private readonly ILogger<MessageService> _logger;
 
         public MessageService(
             TtsService ttsService,
@@ -34,6 +36,7 @@ namespace SesliDil.Service.Services
             HttpClient httpClient,
             IConfiguration configuration,
             IRepository<User> userRepository,
+            ILogger<MessageService> logger,
             IRepository<AIAgent> agentRepository)
             : base(messageRepository, mapper)
         {
@@ -43,6 +46,7 @@ namespace SesliDil.Service.Services
             _httpClient = httpClient;
             _configuration = configuration;
             _ttsService = ttsService;
+            _logger = logger;
             _agentRepository = agentRepository;
 
             _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
@@ -52,8 +56,13 @@ namespace SesliDil.Service.Services
 
         public async Task<MessageDto> SendMessageAsync(SendMessageRequest request)
         {
+            _logger.LogInformation($"SendMessageAsync called with ConversationId={request.ConversationId}, UserId={request.UserId}, AgentId={request.AgentId}, Content={request.Content}");
+
             if (request == null || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.AgentId))
+            {
+                _logger.LogWarning("Invalid input in SendMessageAsync");
                 throw new ArgumentException("Invalid input");
+            }
 
             var user = await _userRepository.GetByIdAsync(request.UserId);
             if (user == null)

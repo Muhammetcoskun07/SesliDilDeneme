@@ -261,11 +261,14 @@ namespace SesliDilDeneme.API.Hubs
         }
         public async Task SendMessage(string conversationId, string userId, string agentId, string content)
         {
+            _logger.LogInformation($"Received SendMessage: conversationId={conversationId}, userId={userId}, agentId={agentId}, content={content}");
+
             if (string.IsNullOrWhiteSpace(conversationId) ||
                 string.IsNullOrWhiteSpace(userId) ||
                 string.IsNullOrWhiteSpace(agentId) ||
                 string.IsNullOrWhiteSpace(content))
             {
+                _logger.LogWarning("SendMessage: One or more required parameters are missing.");
                 await Clients.Caller.SendAsync("Error", "SendMessage: One or more required parameters are missing.");
                 return;
             }
