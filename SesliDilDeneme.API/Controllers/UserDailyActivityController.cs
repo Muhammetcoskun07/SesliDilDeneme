@@ -15,13 +15,7 @@ namespace SesliDilDeneme.API.Controllers
         {
             _service = service;
         }
-        [HttpPost]
-        public async Task<IActionResult> Add(UserDailyActivityDto dto)
-        {
-            var result = await _service.AddAsync(dto);
-            return Ok(result);
-        }
-
+        
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetByUser(string userId)
         {

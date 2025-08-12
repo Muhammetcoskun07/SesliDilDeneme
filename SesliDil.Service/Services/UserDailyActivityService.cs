@@ -43,12 +43,16 @@ namespace SesliDil.Service.Services
         {
             var today = DateTime.UtcNow.Date;
             return await _context.UserDailyActivities
-                .AnyAsync(x => x.UserId == userId && x.Date == today);
+                .AnyAsync(x => x.UserId == userId
+                               && x.Date.Date == today);
         }
         public async Task<UserDailyActivityDto> GetByUserAndDateAsync(string userId, DateTime date)
         {
+            var startDate = date.Date;
+            var endDate = startDate.AddDays(1);
+
             var entity = await _context.UserDailyActivities
-                .FirstOrDefaultAsync(x => x.UserId == userId && x.Date == date);
+                .FirstOrDefaultAsync(x => x.UserId == userId && x.Date >= startDate && x.Date < endDate);
 
             if (entity == null)
                 return null;
@@ -70,8 +74,10 @@ namespace SesliDil.Service.Services
         }
         public async Task<IEnumerable<UserDailyActivityDto>> GetByUserAndDatesAsync(string userId, List<DateTime> dates)
         {
+            var dateRanges = dates.Select(d => new { Start = d.Date, End = d.Date.AddDays(1) }).ToList();
+
             var entities = await _context.UserDailyActivities
-                .Where(x => x.UserId == userId && dates.Contains(x.Date.Date))
+                .Where(x => x.UserId == userId && dateRanges.Any(dr => x.Date >= dr.Start && x.Date < dr.End))
                 .ToListAsync();
 
             return _mapper.Map<IEnumerable<UserDailyActivityDto>>(entities);
