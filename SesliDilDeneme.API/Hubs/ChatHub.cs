@@ -306,6 +306,14 @@ namespace SesliDilDeneme.API.Hubs
                     AgentId = agentId,
                     Content = content
                 };
+                _logger.LogInformation(
+            "SendMessageAsync -> ConversationId={ConversationId}, UserId={UserId}, AgentId={AgentId}, Content={Content}",
+                request.ConversationId,
+               request.UserId,
+                request.AgentId,
+            request.Content
+);
+
 
                 var aiMessage = await _messageService.SendMessageAsync(request);
 
