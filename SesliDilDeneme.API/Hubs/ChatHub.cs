@@ -153,6 +153,7 @@ namespace SesliDilDeneme.API.Hubs
                             {
                                 var newActivity = new UserDailyActivityDto
                                 {
+                                    Id = Guid.NewGuid().ToString(), // ID atandı
                                     UserId = userId,
                                     Date = today,
                                     MinutesSpent = (int)Math.Round(totalMinutes)
@@ -221,8 +222,8 @@ namespace SesliDilDeneme.API.Hubs
                             await _dbContext.SaveChangesAsync();
                             _logger.LogInformation($"Progress created for User {userId}: Level = {userLevel}, Best WPM = {wordsPerMinute}");
                         }
-                        
-                        
+
+
                         // İstemciye gönder
                         var activityDto = new ConversationAgentActivityDto
                         {
@@ -244,24 +245,10 @@ namespace SesliDilDeneme.API.Hubs
                     }
 
                     // Agent dictionary boşsa user'ı kaldır
-                    if (agentsDict.IsEmpty)
-                    {
-                        if (usersDict.TryRemove(userId, out _))
-                            _logger.LogInformation($"Removed userId {userId} from usersDict for conversationId {conversationId}");
-                    }
+
 
                     // User dictionary boşsa conversation'ı kaldır
-                    if (usersDict.IsEmpty)
-                    {
-                        if (activityData.TryRemove(conversationId, out _))
-                            _logger.LogInformation($"Removed conversationId {conversationId} from _activityData");
-                    }
 
-                    await Groups.RemoveFromGroupAsync(Context.ConnectionId, conversationId);
-                }
-                else
-                {
-                    _logger.LogWarning($"No usersDict found for conversationId {conversationId}");
                 }
             }
             catch (Exception ex)
