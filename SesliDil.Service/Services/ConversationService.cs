@@ -97,7 +97,7 @@ namespace SesliDil.Service.Services
             if (forceEnd)
             {
                 var duration = DateTime.UtcNow - conversation.StartedAt;
-                conversation.DurationMinutes = duration.TotalMinutes;
+                conversation.DurationMinutes = (int)duration.TotalMinutes;
             }
 
             await UpdateAsync(conversation);
