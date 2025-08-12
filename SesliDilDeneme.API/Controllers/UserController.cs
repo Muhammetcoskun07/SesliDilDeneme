@@ -167,7 +167,7 @@ namespace SesliDilDeneme.API.Controllers
                 user.TargetLanguage = onboardingDto.TargetLanguage;
                 user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
                 user.AgeRange = onboardingDto.AgeRange;
-                user.HasCompletedOnboarding = onboardingDto.HasCompletedOnboarding;
+                user.HasCompletedOnboarding = true;
                 user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.LearningGoals ?? Array.Empty<string>()));
                 user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
                 user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
