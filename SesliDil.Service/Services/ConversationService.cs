@@ -88,14 +88,18 @@ namespace SesliDil.Service.Services
         }
 
 
-        public async Task EndConversationAsync(string conversationId)
+        public async Task EndConversationAsync(string conversationId, bool forceEnd = true)
         {
             var conversation = await GetByIdAsync<string>(conversationId);
             if (conversation == null)
                 throw new ArgumentException("Conversation not found");
 
-            var duration = DateTime.UtcNow - conversation.StartedAt;
-            conversation.DurationMinutes = duration.TotalMinutes;
+            if (forceEnd)
+            {
+                var duration = DateTime.UtcNow - conversation.StartedAt;
+                conversation.DurationMinutes = duration.TotalMinutes;
+            }
+
             await UpdateAsync(conversation);
         }
         // === SAFE ADD: Conversation'dan hesaplanmış özet (reflection ile, enum/alan bağımsız) ===
