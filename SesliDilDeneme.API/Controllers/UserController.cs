@@ -1,11 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
 using SesliDil.Service.Services;
-using System.Security.Claims;
 using System.Text.Json;
 
 namespace SesliDilDeneme.API.Controllers
@@ -18,37 +16,51 @@ namespace SesliDilDeneme.API.Controllers
         private readonly ProgressService _progressService;
         private readonly IRepository<Progress> _progressRepository;
 
-        public UserController(UserService userService, ProgressService progressService,IRepository<Progress> progressRepository)
+        public UserController(UserService userService, ProgressService progressService, IRepository<Progress> progressRepository)
         {
             _userService = userService;
             _progressService = progressService;
             _progressRepository = progressRepository;
         }
 
+        // GET: api/user
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
+        public async Task<IActionResult> GetAll()
         {
             var users = await _userService.GetAllAsync();
-            return Ok(users);
+            return Ok(new { message = "Users fetched successfully.", error = (string?)null, data = users });
         }
 
+        // GET: api/user/{id}
         [HttpGet("{id}")]
-        public async Task<ActionResult<UserDto>> GetById(string id)
+        public async Task<IActionResult> GetById(string id)
         {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid Id");
+            if (string.IsNullOrWhiteSpace(id))
+                return BadRequest(new { message = "Invalid Id.", error = "ID is required.", data = (object?)null });
+
             var user = await _userService.GetByIdAsync<string>(id);
-            if (user == null) return NotFound();
-            return Ok(user);
+            if (user == null)
+                return NotFound(new { message = "User not found.", error = "NOT_FOUND", data = (object?)null });
+
+            return Ok(new { message = "User fetched successfully.", error = (string?)null, data = user });
         }
 
+        // POST: api/user
         [HttpPost]
-        public async Task<ActionResult<UserDto>> Create([FromBody] UserDto userDto)
+        public async Task<IActionResult> Create([FromBody] UserDto userDto)
         {
-            if (userDto == null) return BadRequest("Invalid User Data");
-            if (string.IsNullOrEmpty(userDto.SocialProvider)) return BadRequest("SocialProvider is required.");
-            if (string.IsNullOrEmpty(userDto.SocialId)) return BadRequest("SocialId is required.");
-            if (string.IsNullOrEmpty(userDto.FirstName)) return BadRequest("FirstName is required.");
-            if (string.IsNullOrEmpty(userDto.LastName)) return BadRequest("LastName is required.");
+            if (userDto == null)
+                return BadRequest(new { message = "Invalid user data.", error = "Body is required.", data = (object?)null });
+
+            if (string.IsNullOrEmpty(userDto.SocialProvider))
+                return BadRequest(new { message = "Invalid user data.", error = "SocialProvider is required.", data = (object?)null });
+            if (string.IsNullOrEmpty(userDto.SocialId))
+                return BadRequest(new { message = "Invalid user data.", error = "SocialId is required.", data = (object?)null });
+            if (string.IsNullOrEmpty(userDto.FirstName))
+                return BadRequest(new { message = "Invalid user data.", error = "FirstName is required.", data = (object?)null });
+            if (string.IsNullOrEmpty(userDto.LastName))
+                return BadRequest(new { message = "Invalid user data.", error = "LastName is required.", data = (object?)null });
+
             if (string.IsNullOrEmpty(userDto.NativeLanguage)) userDto.NativeLanguage = "en";
             if (string.IsNullOrEmpty(userDto.TargetLanguage)) userDto.TargetLanguage = "en";
 
@@ -74,25 +86,35 @@ namespace SesliDilDeneme.API.Controllers
             try
             {
                 await _userService.CreateAsync(user);
-                return CreatedAtAction(nameof(GetById), new { id = user.UserId }, user);
+                return CreatedAtAction(nameof(GetById), new { id = user.UserId }, new
+                {
+                    message = "User created successfully.",
+                    error = (string?)null,
+                    data = user
+                });
             }
             catch (DbUpdateException ex)
             {
-                var innerException = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new { message = "Database error while saving changes", error = inner, data = (object?)null });
             }
         }
 
+        // PUT: api/user/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] UserDto userDto)
         {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
-            if (userDto == null) return BadRequest("Invalid User Data");
+            if (string.IsNullOrWhiteSpace(id))
+                return BadRequest(new { message = "Invalid id.", error = "ID is required.", data = (object?)null });
+            if (userDto == null)
+                return BadRequest(new { message = "Invalid user data.", error = "Body is required.", data = (object?)null });
+
             if (string.IsNullOrEmpty(userDto.NativeLanguage)) userDto.NativeLanguage = "en";
             if (string.IsNullOrEmpty(userDto.TargetLanguage)) userDto.TargetLanguage = "en";
 
             var user = await _userService.GetByIdAsync<string>(id);
-            if (user == null) return NotFound();
+            if (user == null)
+                return NotFound(new { message = "User not found.", error = "NOT_FOUND", data = (object?)null });
 
             user.SocialProvider = userDto.SocialProvider?.Length > 10 ? userDto.SocialProvider[..10] : userDto.SocialProvider;
             user.SocialId = userDto.SocialId?.Length > 255 ? userDto.SocialId[..255] : userDto.SocialId;
@@ -107,26 +129,27 @@ namespace SesliDilDeneme.API.Controllers
             user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(userDto.ImprovementGoals ?? Array.Empty<string>()));
             user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(userDto.TopicInterests ?? Array.Empty<string>()));
             user.WeeklySpeakingGoal = userDto.WeeklySpeakingGoal ?? "";
-
             user.LastLoginAt = DateTime.UtcNow;
 
             try
             {
                 await _userService.UpdateAsync(user);
-                return NoContent();
+                return Ok(new { message = "User updated successfully.", error = (string?)null, data = user });
             }
             catch (DbUpdateException ex)
             {
-                var innerException = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new { message = "Database error while saving changes", error = inner, data = (object?)null });
             }
         }
 
+        // POST: api/user/social
         [HttpPost("social")]
-        public async Task<ActionResult<UserDto>> CreateOrUpdateBySocial([FromBody] UserDto userDto)
+        public async Task<IActionResult> CreateOrUpdateBySocial([FromBody] UserDto userDto)
         {
             if (userDto == null || string.IsNullOrEmpty(userDto.SocialProvider) || string.IsNullOrEmpty(userDto.SocialId))
-                return BadRequest("Invalid data: SocialProvider and SocialId are required.");
+                return BadRequest(new { message = "Invalid data.", error = "SocialProvider and SocialId are required.", data = (object?)null });
+
             if (string.IsNullOrEmpty(userDto.FirstName)) userDto.FirstName = "User";
             if (string.IsNullOrEmpty(userDto.LastName)) userDto.LastName = "LastName";
             if (string.IsNullOrEmpty(userDto.NativeLanguage)) userDto.NativeLanguage = "en";
@@ -141,16 +164,17 @@ namespace SesliDilDeneme.API.Controllers
                     userDto.FirstName,
                     userDto.LastName
                 );
-                return Ok(user);
-            }
 
+                return Ok(new { message = "User fetched/created successfully.", error = (string?)null, data = user });
+            }
             catch (DbUpdateException ex)
             {
-                var innerException = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new { message = "Database error while saving changes", error = innerException });
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new { message = "Database error while saving changes", error = inner, data = (object?)null });
             }
         }
 
+        // POST: api/user/onboarding/{userId}
         [HttpPost("onboarding/{userId}")]
         public async Task<IActionResult> Onboarding(string userId, [FromBody] OnboardingDto onboardingDto)
         {
@@ -219,81 +243,71 @@ namespace SesliDilDeneme.API.Controllers
                 return StatusCode(500, $"Sunucu hatası: {ex.Message}");
             }
         }
+
+        // PATCH: api/user/{userId}/preferences
         [HttpPatch("{userId}/preferences")]
         public async Task<IActionResult> UpdatePreferences(string userId, [FromBody] UpdateUserPreferencesDto dto)
         {
+            if (dto == null)
+                return BadRequest(new { message = "Invalid preferences data.", error = "Body is required.", data = (object?)null });
+
+            // gelen string'i diziye çevirme desteği (mevcut mantık korunuyor)
+            JsonDocument? ValidateAndFix(JsonDocument? doc, string fieldName)
+            {
+                if (doc == null) return null;
+                var root = doc.RootElement;
+
+                if (root.ValueKind == JsonValueKind.Array) return doc;
+                if (root.ValueKind == JsonValueKind.String)
+                {
+                    var singleItem = new List<string> { root.GetString() ?? "" };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(singleItem));
+                }
+
+                throw new ArgumentException($"{fieldName} should be a JSON array or string.");
+            }
+
             try
             {
-                if (dto == null)
-                    return BadRequest("Invalid preferences data.");
+                dto.LearningGoals = ValidateAndFix(dto.LearningGoals, "learningGoals");
+                dto.ImprovementGoals = ValidateAndFix(dto.ImprovementGoals, "improvementGoals");
+                dto.TopicInterests = ValidateAndFix(dto.TopicInterests, "topicInterests");
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = "Validation failed.", error = ex.Message, data = (object?)null });
+            }
 
-                // Helper method ile kontrol ve dönüşüm yapabiliriz
-                JsonDocument? ValidateAndFix(JsonDocument? doc, string fieldName)
-                {
-                    if (doc == null) return null;
+            var user = await _userService.GetByIdAsync(userId);
+            if (user == null)
+                return NotFound(new { message = "User not found.", error = "NOT_FOUND", data = (object?)null });
 
-                    var root = doc.RootElement;
+            user.LearningGoals = dto.LearningGoals ?? user.LearningGoals;
+            user.ImprovementGoals = dto.ImprovementGoals ?? user.ImprovementGoals;
+            user.TopicInterests = dto.TopicInterests ?? user.TopicInterests;
+            user.WeeklySpeakingGoal = dto.WeeklySpeakingGoal ?? user.WeeklySpeakingGoal;
 
-                    if (root.ValueKind == JsonValueKind.Array)
-                        return doc; // Doğru
-
-                    if (root.ValueKind == JsonValueKind.String)
-                    {
-                        // Tek string gelmiş, bunu dizi haline çevirelim
-                        var singleItem = new List<string> { root.GetString() ?? "" };
-                        var jsonStr = JsonSerializer.Serialize(singleItem);
-                        return JsonDocument.Parse(jsonStr);
-                    }
-
-                    throw new ArgumentException($"{fieldName} should be a JSON array or string.");
-                }
-
-                try
-                {
-                    dto.LearningGoals = ValidateAndFix(dto.LearningGoals, "learningGoals");
-                    dto.ImprovementGoals = ValidateAndFix(dto.ImprovementGoals, "improvementGoals");
-                    dto.TopicInterests = ValidateAndFix(dto.TopicInterests, "topicInterests");
-                }
-                catch (ArgumentException ex)
-                {
-                    return BadRequest(ex.Message);
-                }
-
-                var user = await _userService.GetByIdAsync(userId);
-                if (user == null)
-                    return NotFound("User not found.");
-
-                user.LearningGoals = dto.LearningGoals ?? user.LearningGoals;
-                user.ImprovementGoals = dto.ImprovementGoals ?? user.ImprovementGoals;
-                user.TopicInterests = dto.TopicInterests ?? user.TopicInterests;
-                user.WeeklySpeakingGoal = dto.WeeklySpeakingGoal ?? user.WeeklySpeakingGoal;
-
+            try
+            {
                 await _userService.UpdateAsync(user);
-
-                return NoContent();
+                return Ok(new { message = "Preferences updated successfully.", error = (string?)null, data = user });
             }
             catch (DbUpdateException ex)
             {
-                var innerException = ex.InnerException?.Message ?? ex.Message;
-                Console.WriteLine($"[UPDATE PREFERENCES ERROR]: {ex.Message}, Inner: {innerException}");
-                return StatusCode(500, $"Server error: {innerException}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[UPDATE PREFERENCES ERROR]: {ex.Message}");
-                return StatusCode(500, $"Server error: {ex.Message}");
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                return StatusCode(500, new { message = "Database error while saving changes", error = inner, data = (object?)null });
             }
         }
+
+        // DELETE: api/user/{id}/full-delete
         [HttpDelete("{id}/full-delete")]
         public async Task<IActionResult> DeleteUserCompletely(string id)
         {
             var result = await _userService.DeleteUserCompletelyAsync(id);
             if (!result)
-                return NotFound(new { message = "User not found." });
+                return NotFound(new { message = "User not found.", error = "NOT_FOUND", data = (object?)null });
 
-            return Ok(new { message = "User and all related data deleted successfully." });
+            return Ok(new { message = "User and all related data deleted successfully.", error = (string?)null, data = (object?)null });
         }
-
-    
     }
 }
