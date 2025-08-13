@@ -101,35 +101,27 @@ namespace SesliDilDeneme.API.Controllers
         }
 
         // PUT: api/user/{id}
+        // PUT: api/user/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] UserDto userDto)
+        public async Task<IActionResult> Update(string id, [FromBody] UserUpdateDto userDto)
         {
             if (string.IsNullOrWhiteSpace(id))
                 return BadRequest(new { message = "Invalid id.", error = "ID is required.", data = (object?)null });
+
             if (userDto == null)
                 return BadRequest(new { message = "Invalid user data.", error = "Body is required.", data = (object?)null });
-
-            if (string.IsNullOrEmpty(userDto.NativeLanguage)) userDto.NativeLanguage = "en";
-            if (string.IsNullOrEmpty(userDto.TargetLanguage)) userDto.TargetLanguage = "en";
 
             var user = await _userService.GetByIdAsync<string>(id);
             if (user == null)
                 return NotFound(new { message = "User not found.", error = "NOT_FOUND", data = (object?)null });
 
-            user.SocialProvider = userDto.SocialProvider?.Length > 10 ? userDto.SocialProvider[..10] : userDto.SocialProvider;
-            user.SocialId = userDto.SocialId?.Length > 255 ? userDto.SocialId[..255] : userDto.SocialId;
-            user.Email = userDto.Email?.Length > 255 ? userDto.Email[..255] : userDto.Email;
-            user.FirstName = userDto.FirstName?.Length > 100 ? userDto.FirstName[..100] : userDto.FirstName;
-            user.LastName = userDto.LastName?.Length > 100 ? userDto.LastName[..100] : userDto.LastName;
-            user.NativeLanguage = userDto.NativeLanguage.Length > 10 ? userDto.NativeLanguage[..10] : userDto.NativeLanguage;
+            // Sadece istediğin alanları güncelle
             user.TargetLanguage = userDto.TargetLanguage.Length > 10 ? userDto.TargetLanguage[..10] : userDto.TargetLanguage;
             user.ProficiencyLevel = userDto.ProficiencyLevel?.Length > 2 ? userDto.ProficiencyLevel[..2] : userDto.ProficiencyLevel;
-            user.AgeRange = userDto.AgeRange?.Length > 5 ? userDto.AgeRange[..5] : userDto.AgeRange;
             user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(userDto.LearningGoals ?? Array.Empty<string>()));
             user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(userDto.ImprovementGoals ?? Array.Empty<string>()));
             user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(userDto.TopicInterests ?? Array.Empty<string>()));
             user.WeeklySpeakingGoal = userDto.WeeklySpeakingGoal ?? "";
-            user.LastLoginAt = DateTime.UtcNow;
 
             try
             {
