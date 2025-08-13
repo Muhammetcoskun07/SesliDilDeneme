@@ -63,7 +63,10 @@ namespace SesliDil.Service.Services
                 _logger.LogWarning("Invalid input in SendMessageAsync");
                 throw new ArgumentException("Invalid input");
             }
-
+            if (string.IsNullOrWhiteSpace(request.ConversationId))
+            {
+                _logger.LogError("ConversationId is missing!");
+            }
             var user = await _userRepository.GetByIdAsync(request.UserId);
             if (user == null)
                 throw new ArgumentException("User not found");
@@ -274,23 +277,14 @@ namespace SesliDil.Service.Services
 
             // Konuşma geçmişini al
             var messages = await _messageRepository.GetAllAsync();
-            var conversationMessages = messages
-                .Where(m => m.ConversationId == conversationId)
-                .OrderBy(m => m.CreatedAt)
-                .Take(10) // Son 10 mesajı al (token sınırları için)
-                .Select(m => new
-                {
-                    role = m.Role,
-                    content = m.Content
-                })
-                .ToList();
+           
 
             // Sistem prompt'u ve konuşma geçmişini birleştir
             var promptMessages = new List<object>
             {
                 new { role = "system", content = $"{agent.AgentPrompt}\nYou are a helpful assistant responding in {targetLanguage}." }
             };
-            promptMessages.AddRange(conversationMessages);
+           
             promptMessages.Add(new { role = "user", content = userInput });
 
             var requestBody = new
