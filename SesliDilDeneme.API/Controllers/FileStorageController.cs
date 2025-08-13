@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
 
@@ -20,22 +19,24 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<IActionResult> GetAll()
         {
             var files = await _fileService.GetAllAsync();
-            return Ok(files);
+            return Ok(new { message = "Files fetched successfully.", error = (string?)null, data = files });
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
             var file = await _fileService.GetByIdAsync<string>(id);
-            if (file == null) return NotFound();
-            return Ok(file);
+            if (file == null)
+                return NotFound(new { message = "File not found.", error = "NOT_FOUND", data = (object?)null });
+
+            return Ok(new { message = "File fetched successfully.", error = (string?)null, data = file });
         }
 
         [HttpGet("conversation/{conversationId}")]
         public async Task<IActionResult> GetByConversationId(string conversationId)
         {
             var files = await _fileService.GetByConversationIdAsync(conversationId);
-            return Ok(files);
+            return Ok(new { message = "Files fetched successfully.", error = (string?)null, data = files });
         }
 
         [HttpPost]
@@ -45,17 +46,25 @@ namespace SesliDilDeneme.API.Controllers
             file.UploadDate = DateTime.UtcNow;
 
             await _fileService.CreateAsync(file);
-            return CreatedAtAction(nameof(GetById), new { id = file.FileId }, file);
+
+            return CreatedAtAction(nameof(GetById), new { id = file.FileId }, new
+            {
+                message = "File created successfully.",
+                error = (string?)null,
+                data = file
+            });
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
             var file = await _fileService.GetByIdAsync<string>(id);
-            if (file == null) return NotFound();
+            if (file == null)
+                return NotFound(new { message = "File not found.", error = "NOT_FOUND", data = (object?)null });
 
             await _fileService.DeleteAsync(file);
-            return NoContent();
+
+            return Ok(new { message = "File deleted successfully.", error = (string?)null, data = (object?)null });
         }
     }
 }

@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
 
@@ -20,15 +19,17 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<IActionResult> GetAll()
         {
             var agents = await _agentService.GetAllAsync();
-            return Ok(agents);
+            return Ok(new { message = "Agents fetched successfully.", error = (string?)null, data = agents });
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
             var agent = await _agentService.GetByIdAsync<string>(id);
-            if (agent == null) return NotFound();
-            return Ok(agent);
+            if (agent == null)
+                return NotFound(new { message = "Agent not found.", error = "NOT_FOUND", data = (object?)null });
+
+            return Ok(new { message = "Agent fetched successfully.", error = (string?)null, data = agent });
         }
 
         [HttpPost]
@@ -36,14 +37,21 @@ namespace SesliDilDeneme.API.Controllers
         {
             agent.AgentId = Guid.NewGuid().ToString();
             await _agentService.CreateAsync(agent);
-            return CreatedAtAction(nameof(GetById), new { id = agent.AgentId }, agent);
+
+            return CreatedAtAction(nameof(GetById), new { id = agent.AgentId }, new
+            {
+                message = "Agent created successfully.",
+                error = (string?)null,
+                data = agent
+            });
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] AIAgent updated)
         {
             var agent = await _agentService.GetByIdAsync<string>(id);
-            if (agent == null) return NotFound();
+            if (agent == null)
+                return NotFound(new { message = "Agent not found.", error = "NOT_FOUND", data = (object?)null });
 
             agent.AgentName = updated.AgentName;
             agent.AgentPrompt = updated.AgentPrompt;
@@ -52,17 +60,20 @@ namespace SesliDilDeneme.API.Controllers
             agent.IsActive = updated.IsActive;
 
             await _agentService.UpdateAsync(agent);
-            return NoContent();
+
+            return Ok(new { message = "Agent updated successfully.", error = (string?)null, data = agent });
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
             var agent = await _agentService.GetByIdAsync<string>(id);
-            if (agent == null) return NotFound();
+            if (agent == null)
+                return NotFound(new { message = "Agent not found.", error = "NOT_FOUND", data = (object?)null });
 
             await _agentService.DeleteAsync(agent);
-            return NoContent();
+
+            return Ok(new { message = "Agent deleted successfully.", error = (string?)null, data = (object?)null });
         }
     }
 }
