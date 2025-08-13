@@ -9,8 +9,6 @@ using SesliDil.Service.Services;
 using SesliDil.Core.DTOs;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Google.Apis.Auth.OAuth2.Requests;
-using SesliDil.Core.Responses; // <-- ApiResponse<T>
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -42,7 +40,13 @@ namespace SesliDilDeneme.API.Controllers
                     });
 
                 if (string.IsNullOrEmpty(payload.Subject))
-                    return BadRequest(new ApiResponse<object>("Giriş başarısız.", null, "InvalidSocialId"));
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Giriş başarısız.",
+                        data = (object)null,
+                        error = "InvalidSocialId"
+                    });
 
                 var socialId = payload.Subject.Length > 255 ? payload.Subject[..255] : payload.Subject;
                 var email = string.IsNullOrEmpty(payload.Email) ? $"{socialId}@google.local" : (payload.Email.Length > 255 ? payload.Email[..255] : payload.Email);
@@ -51,7 +55,13 @@ namespace SesliDilDeneme.API.Controllers
 
                 var user = await _userService.GetOrCreateBySocialAsync("google", socialId, email, firstName, lastName);
                 if (user == null)
-                    return Unauthorized(new ApiResponse<object>("Giriş başarısız.", null, "UserCreateFailed"));
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Giriş başarısız.",
+                        data = (object)null,
+                        error = "UserCreateFailed"
+                    });
 
                 var accessToken = GenerateJwtToken(user);
                 var refreshToken = Guid.NewGuid().ToString();
@@ -69,9 +79,11 @@ namespace SesliDilDeneme.API.Controllers
                     RefreshTokenExpiresAt = refreshTokenExpiresAt
                 });
 
-                return Ok(new ApiResponse<object>(
-                    "Giriş başarılı.",
-                    new
+                return Ok(new
+                {
+                    success = true,
+                    message = "Giriş başarılı.",
+                    data = new
                     {
                         accessToken,
                         refreshToken,
@@ -80,20 +92,38 @@ namespace SesliDilDeneme.API.Controllers
                         userId = user.UserId,
                         hasCompletedOnboarding = user.HasCompletedOnboarding
                     }
-                ));
+                });
             }
             catch (DbUpdateException ex)
             {
                 var inner = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new ApiResponse<object>("Veritabanı hatası.", null, inner));
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Veritabanı hatası.",
+                    data = (object)null,
+                    error = inner
+                });
             }
             catch (InvalidJwtException ex)
             {
-                return BadRequest(new ApiResponse<object>("Google token doğrulaması başarısız.", null, ex.Message));
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Google token doğrulaması başarısız.",
+                    data = (object)null,
+                    error = ex.Message
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<object>("Sunucu hatası.", null, ex.Message));
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Sunucu hatası.",
+                    data = (object)null,
+                    error = ex.Message
+                });
             }
         }
 
@@ -126,7 +156,13 @@ namespace SesliDilDeneme.API.Controllers
                 var socialId = jwtToken.Subject;
 
                 if (string.IsNullOrEmpty(socialId))
-                    return Unauthorized(new ApiResponse<object>("Giriş başarısız.", null, "InvalidAppleToken"));
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Giriş başarısız.",
+                        data = (object)null,
+                        error = "InvalidAppleToken"
+                    });
 
                 var tokenEmail = principal.Claims.FirstOrDefault(c => c.Type == "email" ||
                     c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
@@ -136,7 +172,13 @@ namespace SesliDilDeneme.API.Controllers
                     : request.Email;
 
                 if (!string.IsNullOrEmpty(tokenEmail) && !string.IsNullOrEmpty(request.Email) && tokenEmail != request.Email)
-                    return BadRequest(new ApiResponse<object>("Email doğrulaması başarısız.", null, "EmailMismatch"));
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Email doğrulaması başarısız.",
+                        data = (object)null,
+                        error = "EmailMismatch"
+                    });
 
                 email = email.Length > 255 ? email[..255] : email;
 
@@ -154,7 +196,13 @@ namespace SesliDilDeneme.API.Controllers
 
                 var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, email, firstName, lastName);
                 if (user == null)
-                    return Unauthorized(new ApiResponse<object>("Giriş başarısız.", null, "UserCreateFailed"));
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Giriş başarısız.",
+                        data = (object)null,
+                        error = "UserCreateFailed"
+                    });
 
                 var accessToken = GenerateJwtToken(user);
                 var refreshToken = Guid.NewGuid().ToString();
@@ -172,9 +220,11 @@ namespace SesliDilDeneme.API.Controllers
                     RefreshTokenExpiresAt = refreshTokenExpiresAt
                 });
 
-                return Ok(new ApiResponse<object>(
-                    "Giriş başarılı.",
-                    new
+                return Ok(new
+                {
+                    success = true,
+                    message = "Giriş başarılı.",
+                    data = new
                     {
                         accessToken,
                         refreshToken,
@@ -186,20 +236,38 @@ namespace SesliDilDeneme.API.Controllers
                         firstName = user.FirstName,
                         lastName = user.LastName
                     }
-                ));
+                });
             }
             catch (SecurityTokenException ex)
             {
-                return BadRequest(new ApiResponse<object>("Apple token doğrulaması başarısız.", null, ex.Message));
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Apple token doğrulaması başarısız.",
+                    data = (object)null,
+                    error = ex.Message
+                });
             }
             catch (DbUpdateException ex)
             {
                 var inner = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new ApiResponse<object>("Veritabanı hatası.", null, inner));
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Veritabanı hatası.",
+                    data = (object)null,
+                    error = inner
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<object>("Sunucu hatası.", null, ex.Message));
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Sunucu hatası.",
+                    data = (object)null,
+                    error = ex.Message
+                });
             }
         }
 
@@ -209,11 +277,23 @@ namespace SesliDilDeneme.API.Controllers
             var session = await _sessionService.GetByRefreshTokenAsync(request.RefreshToken);
 
             if (session == null || session.RefreshTokenExpiresAt < DateTime.UtcNow)
-                return Unauthorized(new ApiResponse<object>("Refresh başarısız.", null, "InvalidOrExpiredRefreshToken"));
+                return Unauthorized(new
+                {
+                    success = false,
+                    message = "Refresh başarısız.",
+                    data = (object)null,
+                    error = "InvalidOrExpiredRefreshToken"
+                });
 
             var user = await _userService.GetByIdAsync(session.UserId);
             if (user == null)
-                return Unauthorized(new ApiResponse<object>("Refresh başarısız.", null, "UserNotFound"));
+                return Unauthorized(new
+                {
+                    success = false,
+                    message = "Refresh başarısız.",
+                    data = (object)null,
+                    error = "UserNotFound"
+                });
 
             var newAccessToken = GenerateJwtToken(user);
             var newAccessExp = DateTime.UtcNow.AddMinutes(30);
@@ -222,9 +302,11 @@ namespace SesliDilDeneme.API.Controllers
             session.AccessTokenExpiresAt = newAccessExp;
             await _sessionService.UpdateAsync(session);
 
-            return Ok(new ApiResponse<object>(
-                "Token yenilendi.",
-                new
+            return Ok(new
+            {
+                success = true,
+                message = "Token yenilendi.",
+                data = new
                 {
                     accessToken = newAccessToken,
                     accessTokenExpiresAt = newAccessExp,
@@ -233,13 +315,18 @@ namespace SesliDilDeneme.API.Controllers
                     userId = user.UserId,
                     hasCompletedOnboarding = user.HasCompletedOnboarding
                 }
-            ));
+            });
         }
 
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            return Ok(new ApiResponse<object>("Çıkış yapıldı.", null));
+            return Ok(new
+            {
+                success = true,
+                message = "Çıkış yapıldı.",
+                data = (object)null
+            });
         }
 
         public class RefreshTokenRequest

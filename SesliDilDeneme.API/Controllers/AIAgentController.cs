@@ -5,7 +5,7 @@ using SesliDil.Service.Services;
 namespace SesliDilDeneme.API.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
     public class AIAgentController : Controller
     {
         private readonly AIAgentService _agentService;
