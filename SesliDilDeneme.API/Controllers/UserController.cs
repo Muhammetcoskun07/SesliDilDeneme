@@ -174,30 +174,30 @@ namespace SesliDilDeneme.API.Controllers
             }
         }
 
-        // POST: api/user/onboarding/{userId}
         [HttpPost("onboarding/{userId}")]
         public async Task<IActionResult> Onboarding(string userId, [FromBody] OnboardingDto onboardingDto)
         {
-            if (onboardingDto == null)
-                return BadRequest(new { message = "Invalid onboarding data.", error = "Body is required.", data = (object?)null });
-
-            var user = await _userService.GetByIdAsync(userId);
-            if (user == null)
-                return NotFound(new { message = "User not found.", error = "NOT_FOUND", data = (object?)null });
-
-            user.NativeLanguage = onboardingDto.NativeLanguage;
-            user.TargetLanguage = onboardingDto.TargetLanguage;
-            user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
-            user.AgeRange = onboardingDto.AgeRange;
-            user.HasCompletedOnboarding = true;
-            user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.LearningGoals ?? Array.Empty<string>()));
-            user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
-            user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
-            user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
-            user.LastLoginAt = DateTime.UtcNow;
-
             try
             {
+                if (onboardingDto == null)
+                    return BadRequest("Geçersiz onboarding verileri");
+
+                var user = await _userService.GetByIdAsync(userId);
+                if (user == null)
+                    return NotFound("Kullanıcı bulunamadı");
+
+                user.NativeLanguage = onboardingDto.NativeLanguage;
+                user.TargetLanguage = onboardingDto.TargetLanguage;
+                user.ProficiencyLevel = onboardingDto.ProficiencyLevel;
+                user.AgeRange = onboardingDto.AgeRange;
+                user.HasCompletedOnboarding = true;
+                user.LearningGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.LearningGoals ?? Array.Empty<string>()));
+                user.ImprovementGoals = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.ImprovementGoals ?? Array.Empty<string>()));
+                user.TopicInterests = JsonDocument.Parse(JsonSerializer.Serialize(onboardingDto.TopicInterests ?? Array.Empty<string>()));
+                user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
+                user.LastLoginAt = DateTime.UtcNow;
+
+                // Kullanıcıyı kaydet
                 await _userService.UpdateAsync(user);
 
                 var progress = await _progressService.GetSingleByUserIdAsync(userId);
@@ -215,6 +215,7 @@ namespace SesliDilDeneme.API.Controllers
                         LastConversationDate = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
                         BestWordsPerMinute = 0.0
+
                     };
                     await _progressRepository.AddAsync(progress);
                     await _progressRepository.SaveChangesAsync();
@@ -227,12 +228,18 @@ namespace SesliDilDeneme.API.Controllers
                     await _progressRepository.SaveChangesAsync();
                 }
 
-                return Ok(new { message = "Onboarding info and progress saved.", error = (string?)null, data = user });
+                return Ok("Onboarding bilgileri ve ilerleme kaydedildi.");
             }
             catch (DbUpdateException ex)
             {
-                var inner = ex.InnerException?.Message ?? ex.Message;
-                return StatusCode(500, new { message = "Database error while saving changes", error = inner, data = (object?)null });
+                var innerException = ex.InnerException?.Message ?? ex.Message;
+                Console.WriteLine($"[ONBOARDING HATASI]: {ex.Message}, İç Hata: {innerException}");
+                return StatusCode(500, $"Sunucu hatası: {innerException}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ONBOARDING HATASI]: {ex.Message}");
+                return StatusCode(500, $"Sunucu hatası: {ex.Message}");
             }
         }
 
