@@ -102,7 +102,7 @@ namespace SesliDilDeneme.API.Controllers
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null)
                 return NotFound(new ApiResponse<object>("Not found", null));
-
+     
             var user = await _userService.GetByIdAsync(conversationDto.UserId);
             if (user == null)
                 return BadRequest(new ApiResponse<object>("User not found", null));
