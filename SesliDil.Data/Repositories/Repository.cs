@@ -65,7 +65,7 @@ namespace SesliDil.Data.Repositories
         {
             return _dbSet.AsQueryable();
         }
-
+        
         public Task UpdateAsync(Conversation conversation)
         {
             throw new NotImplementedException();
