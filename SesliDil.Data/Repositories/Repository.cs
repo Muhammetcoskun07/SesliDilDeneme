@@ -76,5 +76,13 @@ namespace SesliDil.Data.Repositories
                                  .Include(c => c.Messages)
                                  .FirstOrDefaultAsync(c => c.ConversationId == id);
         }
+        public async Task<List<Message>> GetByConversationIdAsync(string conversationId)
+        {
+            // This assumes the repository is instantiated as Repository<Message>
+            return await _dbSet
+                .OfType<Message>() // Ensure T is Message, but since it's generic, use when T=Message
+                .Where(m => m.ConversationId == conversationId)
+                .ToListAsync();
+        }
     }
 }

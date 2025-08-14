@@ -78,28 +78,52 @@ namespace SesliDil.Service.Services
             };
             await CreateAsync(userMessage);
 
-            // Tek prompt: AI cevabı + translate + grammar check
+            // Tek prompt ile AI cevabı + çeviri + grammar check
             var prompt = $@"
-You are a helpful language tutor. 
+You are a helpful language tutor.
 User input: ""{request.Content}""
-Respond in {user.TargetLanguage}. 
-Also, translate your response into the user's native language ({user.NativeLanguage}) 
-and identify all grammar mistakes in that translation. 
-Return strictly JSON, without any ``` or extra text, in this format:
+Respond in {user.TargetLanguage}.
+Also, translate your response into the user's native language ({user.NativeLanguage})
+and identify all grammar mistakes in that translation.
+Return strictly JSON in this format:
 {{
   ""aiText"": ""..."",
   ""translatedContent"": ""..."",
   ""grammarErrors"": []
 }}";
 
+            // Agent prompt ve kullanıcı profili dahil et
+            string learningGoals = user.LearningGoals != null ? JsonSerializer.Serialize(user.LearningGoals) : "";
+            string improvementGoals = user.ImprovementGoals != null ? JsonSerializer.Serialize(user.ImprovementGoals) : "";
+            string topicInterests = user.TopicInterests != null ? JsonSerializer.Serialize(user.TopicInterests) : "";
+            var agent = await _agentRepository.GetByIdAsync(request.AgentId);
+            if (agent == null || !agent.IsActive)
+                throw new ArgumentException("Invalid or inactive agent");
+            var messages = new List<object>
+    {
+
+        new
+        {
+           role = "system",
+content = $@"{agent.AgentPrompt ?? ""}
+Here is the learner's profile:
+- Native language: {user.NativeLanguage}
+- Target language: {user.TargetLanguage}
+- Proficiency level: {user.ProficiencyLevel}
+- Age range: {user.AgeRange}
+- Weekly speaking goal: {user.WeeklySpeakingGoal}
+- Learning goals: {learningGoals}
+- Improvement goals: {improvementGoals}
+- Topic interests: {topicInterests}
+Tailor your answers to their goals and preferences."
+        },
+        new { role = "user", content = prompt }
+    };
+
             var requestBody = new
             {
                 model = "gpt-4o",
-                messages = new[]
-                {
-            new { role = "system", content = "You are a translator and grammar checker AI." },
-            new { role = "user", content = prompt }
-        },
+                messages = messages,
                 temperature = 0.7
             };
 
@@ -109,16 +133,14 @@ Return strictly JSON, without any ``` or extra text, in this format:
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             var jsonText = result?.Choices?.FirstOrDefault()?.Message?.Content ?? "{}";
 
-            // JSON temizleme (``` veya backtick varsa)
+            // JSON temizleme
             jsonText = jsonText.Trim();
             if (jsonText.StartsWith("```"))
             {
                 int firstBrace = jsonText.IndexOf('{');
                 int lastBrace = jsonText.LastIndexOf('}');
                 if (firstBrace >= 0 && lastBrace > firstBrace)
-                {
                     jsonText = jsonText.Substring(firstBrace, lastBrace - firstBrace + 1);
-                }
             }
 
             var parsed = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(jsonText);
@@ -149,7 +171,6 @@ Return strictly JSON, without any ``` or extra text, in this format:
 
             return _mapper.Map<MessageDto>(aiMessage);
         }
-
 
 
         private string GetVoiceByLanguage(string language)
@@ -280,7 +301,7 @@ Return strictly JSON, without any ``` or extra text, in this format:
             using var client = new HttpClient();
             return await client.GetByteArrayAsync(audioUrl);
         }
-        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId, string conversationId,string userId)
+        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId, string conversationId, string userId)
         {
             var agent = await _agentRepository.GetByIdAsync(agentId);
             if (agent == null || !agent.IsActive)
