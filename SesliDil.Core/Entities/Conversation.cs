@@ -25,7 +25,7 @@ namespace SesliDil.Core.Entities
         public AIAgent Agent { get; set; }
         public User User { get; set; } 
         public ICollection<Message>? Messages { get; set; }
-        public ICollection<FileStorage>? Files { get; set; }
+       
     }
 
 }

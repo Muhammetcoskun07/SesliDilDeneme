@@ -104,16 +104,12 @@ namespace SesliDil.Service.Services
                 _context.Messages.RemoveRange(messages);
 
                 // 3.2 Konuşmaya ait dosyaları sil
-                var files = await _context.FileStorages.Where(f => f.ConversationId == convo.ConversationId).ToListAsync();
-                _context.FileStorages.RemoveRange(files);
+              
             }
 
             // 4. Kullanıcının konuşmalarını sil
             _context.Conversations.RemoveRange(conversations);
 
-            // 5. Kullanıcının doğrudan yüklediği dosyaları da sil (konuşmaya bağlı olmayanlar varsa)
-            var userFiles = await _context.FileStorages.Where(f => f.UserId == userId).ToListAsync();
-            _context.FileStorages.RemoveRange(userFiles);
 
             // 6. Kullanıcının kendisini sil
             _context.Users.Remove(user);
