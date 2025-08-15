@@ -9,7 +9,7 @@ namespace SesliDil.Core.Entities
 {
     public class User
     {
-        public string? UserId { get; set; } // UUID
+        public string? UserId { get; set; }  // UUID
         public string? SocialProvider { get; set; } // ENUM: google, apple
         public string SocialId { get; set; }
         public string? Email { get; set; }

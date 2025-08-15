@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SesliDil.Core.Entities
 {
-    public class UserDailyActivity
+    public class UserDailyActivity 
     {
         public string Id { get; set; }
         public string UserId { get; set; }
