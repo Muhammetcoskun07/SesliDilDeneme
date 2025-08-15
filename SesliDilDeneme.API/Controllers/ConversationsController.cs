@@ -200,7 +200,8 @@ namespace SesliDilDeneme.API.Controllers
             {
                 m.MessageId,
                 m.Content,
-                GrammarErrors = m.GrammarErrors
+                GrammarErrors = m.GrammarErrors,
+                CorrectedText = m.CorrectedText
             });
 
             return Ok(new
