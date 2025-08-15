@@ -3,6 +3,7 @@ using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
 using SesliDil.Core.Responses;
+using Microsoft.EntityFrameworkCore;
 
 namespace SesliDilDeneme.API.Controllers
 {
