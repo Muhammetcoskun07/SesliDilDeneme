@@ -77,10 +77,22 @@ namespace SesliDil.Service.Services
             var dateRanges = dates.Select(d => new { Start = d.Date, End = d.Date.AddDays(1) }).ToList();
 
             var entities = await _context.UserDailyActivities
-                .Where(x => x.UserId == userId && dateRanges.Any(dr => x.Date >= dr.Start && x.Date < dr.End))
-                .ToListAsync();
+                .Where(x => x.UserId == userId)
+                .ToListAsync(); // SQL burada biter
+
+            // Filtreleme artık bellekte yapılır
+            entities = entities
+                .Where(x => dateRanges.Any(dr => x.Date >= dr.Start && x.Date < dr.End))
+                .ToList();
 
             return _mapper.Map<IEnumerable<UserDailyActivityDto>>(entities);
+        }
+        public async Task<List<UserDailyActivity>> GetActivitiesByDaysAsync(string userId, List<DayOfWeek> days)
+        {
+            return await _context.UserDailyActivities
+                .Where(x => x.UserId == userId &&
+                            days.Contains(x.Date.DayOfWeek))
+                .ToListAsync();
         }
         public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
         {
@@ -151,7 +163,30 @@ namespace SesliDil.Service.Services
             return query;
         }
 
+        public async Task<List<UserDailyActivity>> GetActivitiesByDatesOrDaysAsync(
+    string userId,
+    List<DateTime>? dates = null,
+    List<DayOfWeek>? days = null)
+        {
+            var query = _context.UserDailyActivities.AsQueryable();
 
+            query = query.Where(x => x.UserId == userId);
+
+            if (dates != null && dates.Any())
+            {
+                var dateSet = dates.Select(d => d.Date).ToHashSet();
+                query = query.Where(x => dateSet.Contains(x.Date.Date));
+            }
+
+            if (days != null && days.Any())
+            {
+                query = query.Where(x => days.Contains(x.Date.DayOfWeek));
+            }
+
+            return await query
+                .OrderByDescending(x => x.Date)
+                .ToListAsync();
+        }
 
     }
 }
