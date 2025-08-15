@@ -35,38 +35,74 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new { message = "Existence check completed.", error = (string?)null, data = new { exists } });
         }
 
-        [HttpPost("check-activities")]
-        public async Task<IActionResult> CheckActivities([FromBody] UserDailyActivityCheckRequest request)
+        [HttpGet("check-weekly-activities")]
+        public async Task<IActionResult> CheckWeeklyActivities([FromQuery] string userId)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.UserId))
+            if (string.IsNullOrWhiteSpace(userId))
                 return BadRequest(new { message = "Invalid request.", error = "UserId is required.", data = (object?)null });
 
-            if (request.Dates == null || !request.Dates.Any())
-                return BadRequest(new { message = "Invalid request.", error = "Dates list cannot be empty.", data = (object?)null });
+            var today = DateTime.UtcNow.Date;
+            var startDate = today.AddDays(-6); // son 7 gün
 
-            var activities = await _service.GetByUserAndDatesAsync(request.UserId, request.Dates);
-            var completedDates = activities.Select(a => a.Date.Date).ToList();
+            var dateList = Enumerable.Range(0, 7)
+                                      .Select(i => startDate.AddDays(i))
+                                      .ToList();
+
+            var activities = await _service.GetByUserAndDatesAsync(userId, dateList);
+            var completedDates = activities
+                .Select(a => a.Date.Date)
+                .Distinct()
+                .OrderBy(d => d)
+                .ToList();
 
             return Ok(new
             {
-                message = "Activities checked successfully.",
+                message = "Weekly activities fetched successfully.",
                 error = (string?)null,
                 data = new
                 {
-                    userId = request.UserId,
+                    userId,
                     completedDates
                 }
             });
         }
-
-        [HttpGet("{userId}/today-speaking-completion")]
-        public async Task<IActionResult> GetTodaySpeakingCompletion(string userId)
+        [HttpGet("weekly-activities/{userId}")]
+        public async Task<IActionResult> GetWeeklyActivities(string userId)
         {
             if (string.IsNullOrWhiteSpace(userId))
-                return BadRequest(new { message = "Invalid userId.", error = "UserId is required.", data = (object?)null });
+                return BadRequest(new { message = "Invalid request.", error = "UserId is required.", data = (object?)null });
 
-            var completionRate = await _service.GetTodaySpeakingCompletionRateAsync(userId);
-            return Ok(new { message = "Today speaking completion fetched.", error = (string?)null, data = new { completionRate } });
+            // Bugün hangi gün ise haftanın Pazartesi'si ile başla
+            var today = DateTime.UtcNow.Date;
+            int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
+            var weekStart = today.AddDays(-diff); // Pazartesi
+            var weekDays = Enumerable.Range(0, 7)
+                                     .Select(i => weekStart.AddDays(i))
+                                     .ToList();
+
+            // Veritabanından haftalık aktiviteleri al
+            var activities = await _service.GetByUserAndDatesAsync(userId, weekDays);
+
+            // Pazartesi-Sunday şeklinde günlük doluluk durumu
+            var weeklyReport = weekDays.Select(day => new
+            {
+                Day = day.DayOfWeek.ToString(),
+                Date = day,
+                HasActivity = activities.Any(a => a.Date.Date == day)
+            }).ToList();
+
+            return Ok(new
+            {
+                message = "Weekly activities retrieved successfully.",
+                error = (string?)null,
+                data = new
+                {
+                    userId,
+                    weeklyReport
+                }
+            });
         }
     }
+
+
 }
