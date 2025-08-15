@@ -66,42 +66,42 @@ namespace SesliDilDeneme.API.Controllers
                 }
             });
         }
-        [HttpGet("weekly-activities/{userId}")]
-        public async Task<IActionResult> GetWeeklyActivities(string userId)
-        {
-            if (string.IsNullOrWhiteSpace(userId))
-                return BadRequest(new { message = "Invalid request.", error = "UserId is required.", data = (object?)null });
+        //[HttpGet("weekly-activities/{userId}")]
+        //public async Task<IActionResult> GetWeeklyActivities(string userId)
+        //{
+        //    if (string.IsNullOrWhiteSpace(userId))
+        //        return BadRequest(new { message = "Invalid request.", error = "UserId is required.", data = (object?)null });
 
-            // Bugün hangi gün ise haftanın Pazartesi'si ile başla
-            var today = DateTime.UtcNow.Date;
-            int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
-            var weekStart = today.AddDays(-diff); // Pazartesi
-            var weekDays = Enumerable.Range(0, 7)
-                                     .Select(i => weekStart.AddDays(i))
-                                     .ToList();
+        //    // Bugün hangi gün ise haftanın Pazartesi'si ile başla
+        //    var today = DateTime.UtcNow.Date;
+        //    int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
+        //    var weekStart = today.AddDays(-diff); // Pazartesi
+        //    var weekDays = Enumerable.Range(0, 7)
+        //                             .Select(i => weekStart.AddDays(i))
+        //                             .ToList();
 
-            // Veritabanından haftalık aktiviteleri al
-            var activities = await _service.GetByUserAndDatesAsync(userId, weekDays);
+        //    // Veritabanından haftalık aktiviteleri al
+        //    var activities = await _service.GetByUserAndDatesAsync(userId, weekDays);
 
-            // Pazartesi-Sunday şeklinde günlük doluluk durumu
-            var weeklyReport = weekDays.Select(day => new
-            {
-                Day = day.DayOfWeek.ToString(),
-                Date = day,
-                HasActivity = activities.Any(a => a.Date.Date == day)
-            }).ToList();
+        //    // Pazartesi-Sunday şeklinde günlük doluluk durumu
+        //    var weeklyReport = weekDays.Select(day => new
+        //    {
+        //        Day = day.DayOfWeek.ToString(),
+        //        Date = day,
+        //        HasActivity = activities.Any(a => a.Date.Date == day)
+        //    }).ToList();
 
-            return Ok(new
-            {
-                message = "Weekly activities retrieved successfully.",
-                error = (string?)null,
-                data = new
-                {
-                    userId,
-                    weeklyReport
-                }
-            });
-        }
+        //    return Ok(new
+        //    {
+        //        message = "Weekly activities retrieved successfully.",
+        //        error = (string?)null,
+        //        data = new
+        //        {
+        //            userId,
+        //            weeklyReport
+        //        }
+        //    });
+        //}
     }
 
 
