@@ -100,13 +100,13 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate(); 
 }
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowAll");
 
 
 app.UseAuthentication(); // ÖNCE Authentication
 app.UseAuthorization();  // SONRA Authorization
-app.UseStaticFiles();;
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();
