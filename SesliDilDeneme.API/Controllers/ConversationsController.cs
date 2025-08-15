@@ -254,5 +254,28 @@ namespace SesliDilDeneme.API.Controllers
                 body = result
             });
         }
+        [HttpGet("user/{userId}/agent/{agentId}/conversations")]
+        public async Task<IActionResult> GetConversationsByUserAndAgent(string userId, string agentId)
+        {
+            var conversations = await _conversationService.GetConversationsByUserAndAgentAsync(userId, agentId);
+
+            var result = conversations.Select(c => new
+            {
+                c.ConversationId,
+                c.Title,
+                c.Language,
+                c.StartedAt,
+                c.CreatedAt,
+                c.DurationMinutes,
+                c.Summary
+            });
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
+        }
     }
 }
