@@ -32,6 +32,7 @@ builder.Services.AddScoped<AIAgentService>();
 builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<TtsService>();
 builder.Services.AddHostedService<AudioCleanupService>();
+builder.Services.AddHostedService<CleanupService>();
 builder.Services.AddSingleton<AgentActivityService>();
 builder.Services.AddScoped<IUserDailyActivityService, UserDailyActivityService>();
 builder.Services.AddScoped<IAgentActivityStatsService, AgentActivityStatsService>();
