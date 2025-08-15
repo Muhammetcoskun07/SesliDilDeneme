@@ -285,6 +285,15 @@ namespace SesliDil.Service.Services
                      .Take(k)
                      .ToList();
         }
+        public async Task<List<Message>> GetUserMessagesWithGrammarErrorsAsync(string conversationId)
+        {
+            return await _dbContext.Messages
+                .Where(m => m.ConversationId == conversationId
+                            && m.Role == "user"
+                            && m.GrammarErrors != null
+                            && m.GrammarErrors.Any())
+                .ToListAsync();
+        }
 
     }
 }

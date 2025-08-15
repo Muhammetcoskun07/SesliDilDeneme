@@ -191,5 +191,24 @@ namespace SesliDilDeneme.API.Controllers
             var dto = await _conversationService.BuildConversationSummaryComputedAsync(conversationId, samples, highlights);
             return Ok(new ApiResponse<object>("İşlem başarılı.", dto));
         }
+        [HttpGet("{conversationId}/user-grammar-errors")]
+        public async Task<IActionResult> GetUserGrammarErrors(string conversationId)
+        {
+            var messages = await _conversationService.GetUserMessagesWithGrammarErrorsAsync(conversationId);
+
+            var result = messages.Select(m => new
+            {
+                m.MessageId,
+                m.Content,
+                GrammarErrors = m.GrammarErrors
+            });
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
+        }
     }
 }
