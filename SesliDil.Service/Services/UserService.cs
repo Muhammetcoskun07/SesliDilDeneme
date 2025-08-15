@@ -96,6 +96,14 @@ namespace SesliDil.Service.Services
 
             // 3. Kullanıcının konuşmalarını bul
             var conversations = await _context.Conversations.Where(c => c.UserId == userId).ToListAsync();
+            //var data = await (from m in _context.Messages
+            //            join c in conversations on m.ConversationId equals c.ConversationId
+            //            where c.UserId == userId
+            //            select new { m, c }
+            //             ).ToListAsync();
+
+            //_context.Messages.RemoveRange(data.Select(x => x.m));
+            //_context.Conversations.RemoveRange(data.Select(x => x.c));
 
             foreach (var convo in conversations)
             {
@@ -103,7 +111,6 @@ namespace SesliDil.Service.Services
                 var messages = await _context.Messages.Where(m => m.ConversationId == convo.ConversationId).ToListAsync();
                 _context.Messages.RemoveRange(messages);
 
-                // 3.2 Konuşmaya ait dosyaları sil
               
             }
 

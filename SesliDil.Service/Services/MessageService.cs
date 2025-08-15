@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AutoMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -58,46 +59,44 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(user.TargetLanguage) || string.IsNullOrWhiteSpace(user.NativeLanguage))
                 throw new ArgumentException("User's languages are not specified");
 
-            // Kullanıcı mesajını DB'ye kaydet
-            var userMessage = new Message
-            {
-                MessageId = Guid.NewGuid().ToString(),
-                ConversationId = request.ConversationId,
-                Role = "user",
-                Content = request.Content,
-                CreatedAt = DateTime.UtcNow,
-                SpeakerType = "user"
-            };
-            await CreateAsync(userMessage);
-
-            // Tek prompt ile AI cevabı + çeviri + grammar check
-            var prompt = $@"
-You are a helpful language tutor.
-User input: ""{request.Content}""
-Respond in {user.TargetLanguage}.
-Also, translate your response into the user's native language ({user.NativeLanguage})
-and identify all grammar mistakes in that translation.
-Return strictly JSON in this format:
-{{
-  ""aiText"": ""..."",
-  ""translatedContent"": ""..."",
-  ""grammarErrors"": []
-}}";
-
             // Agent prompt ve kullanıcı profili dahil et
             string learningGoals = user.LearningGoals != null ? JsonSerializer.Serialize(user.LearningGoals) : "";
             string improvementGoals = user.ImprovementGoals != null ? JsonSerializer.Serialize(user.ImprovementGoals) : "";
             string topicInterests = user.TopicInterests != null ? JsonSerializer.Serialize(user.TopicInterests) : "";
+
             var agent = await _agentRepository.GetByIdAsync(request.AgentId);
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent");
+
+            // Prompt - Kullanıcının mesajını düzelt + cevapla + çevir + hata listesi
+            var prompt = $@"
+You are a helpful language tutor.
+
+The learner's message: ""{request.Content}""
+
+Tasks:
+1. Identify **all** grammar mistakes in the learner's original message in {user.TargetLanguage}. Even small mistakes (accents, missing articles, word order) should be listed.
+2. Provide the corrected version of the learner's message in {user.TargetLanguage} without changing its meaning.
+3. Respond to the corrected message in {user.TargetLanguage}.
+4. Translate your response into the learner's native language ({user.NativeLanguage}).
+
+Return strictly JSON in this exact format:
+{{
+  ""correctedText"": ""..."",
+  ""aiText"": ""..."",
+  ""translatedContent"": ""..."",
+  ""grammarErrors"": [""..."", ""...""]
+}}
+Always fill 'grammarErrors' with every issue found. If there are no mistakes, return an empty array.
+";
+
             var messages = new List<object>
     {
-
         new
         {
-           role = "system",
-content = $@"{agent.AgentPrompt ?? ""}
+            role = "system",
+            content = $@"{agent.AgentPrompt ?? ""}
+
 Here is the learner's profile:
 - Native language: {user.NativeLanguage}
 - Target language: {user.TargetLanguage}
@@ -107,6 +106,7 @@ Here is the learner's profile:
 - Learning goals: {learningGoals}
 - Improvement goals: {improvementGoals}
 - Topic interests: {topicInterests}
+
 Tailor your answers to their goals and preferences."
         },
         new { role = "user", content = prompt }
@@ -137,15 +137,31 @@ Tailor your answers to their goals and preferences."
 
             var parsed = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(jsonText);
 
+            var correctedText = parsed["correctedText"].GetString();
             var aiText = parsed["aiText"].GetString();
             var translatedContent = parsed["translatedContent"].GetString();
             var grammarErrors = parsed["grammarErrors"].EnumerateArray().Select(e => e.GetString()).ToList();
+
+            // Kullanıcı mesajını DB'ye kaydet (CorrectedText ve GrammarErrors eklenmiş)
+            var userMessage = new Message
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                ConversationId = request.ConversationId,
+                Role = "user",
+                Content = request.Content,
+                CorrectedText = correctedText,
+                GrammarErrors = grammarErrors,
+                CreatedAt = DateTime.UtcNow,
+                SpeakerType = "user"
+            };
+            await CreateAsync(userMessage);
 
             // AI mesajını TTS ile mp3’e çevir
             var voice = GetVoiceByLanguage(user.TargetLanguage);
             var audioBytes = await _ttsService.ConvertTextToSpeechAsync(aiText, voice);
             var audioUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
 
+            // AI mesajını kaydet
             var aiMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -153,15 +169,15 @@ Tailor your answers to their goals and preferences."
                 Role = "assistant",
                 Content = aiText,
                 TranslatedContent = translatedContent,
-                GrammarErrors = grammarErrors,
                 AudioUrl = audioUrl,
                 CreatedAt = DateTime.UtcNow,
-                SpeakerType = "assistant"
+                SpeakerType = "assistant",
             };
-
             await CreateAsync(aiMessage);
-
-            return _mapper.Map<MessageDto>(aiMessage);
+            var responseDto = _mapper.Map<MessageDto>(aiMessage);
+            responseDto.CorrectedText = correctedText;
+            responseDto.GrammarErrors = grammarErrors;
+            return responseDto;
         }
 
 
