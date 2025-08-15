@@ -87,16 +87,16 @@ namespace SesliDil.Service.Services
             _conversationRepository.Update(conv);            
             await _conversationRepository.SaveChangesAsync();
         }
-    //    public async Task<int> DeleteEmptyConversationsAsync()
-    //    {
-    //        var deleted = await _dbContext.Database.ExecuteSqlRawAsync(@"
-    //    DELETE FROM ""Conversation"" c
-    //    WHERE NOT EXISTS (
-    //        SELECT 1 FROM ""Message"" m WHERE m.""ConversationId"" = c.""ConversationId""
-    //    )
-    //");
-    //        return deleted;
-    //    }
+       public async Task<int> DeleteEmptyConversationsAsync()
+        {
+           var deleted = await _dbContext.Database.ExecuteSqlRawAsync(@"
+        DELETE FROM ""Conversation"" c
+       WHERE NOT EXISTS (
+    /       SELECT 1 FROM ""Message"" m WHERE m.""ConversationId"" = c.""ConversationId""
+       )
+    ");
+           return deleted;
+       }
         public async Task EndConversationAsync(string conversationId, bool forceEnd = true)
         {
             var conversation = await GetByIdAsync<string>(conversationId);

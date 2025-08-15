@@ -163,30 +163,30 @@ namespace SesliDil.Service.Services
             return query;
         }
 
-    //    public async Task<List<UserDailyActivity>> GetActivitiesByDatesOrDaysAsync(
-    //string userId,
-    //List<DateTime>? dates = null,
-    //List<DayOfWeek>? days = null)
-    //    {
-    //        var query = _context.UserDailyActivities.AsQueryable();
+        public async Task<List<UserDailyActivity>> GetActivitiesByDatesOrDaysAsync(
+    string userId,
+    List<DateTime>? dates = null,
+    List<DayOfWeek>? days = null)
+        {
+            var query = _context.UserDailyActivities.AsQueryable();
 
-    //        query = query.Where(x => x.UserId == userId);
+            query = query.Where(x => x.UserId == userId);
 
-    //        if (dates != null && dates.Any())
-    //        {
-    //            var dateSet = dates.Select(d => d.Date).ToHashSet();
-    //            query = query.Where(x => dateSet.Contains(x.Date.Date));
-    //        }
+            if (dates != null && dates.Any())
+            {
+                var dateSet = dates.Select(d => d.Date).ToHashSet();
+                query = query.Where(x => dateSet.Contains(x.Date.Date));
+            }
 
-    //        if (days != null && days.Any())
-    //        {
-    //            query = query.Where(x => days.Contains(x.Date.DayOfWeek));
-    //        }
+            if (days != null && days.Any())
+            {
+                query = query.Where(x => days.Contains(x.Date.DayOfWeek));
+            }
 
-    //        return await query
-    //            .OrderByDescending(x => x.Date)
-    //            .ToListAsync();
-    //    }
+            return await query
+                .OrderByDescending(x => x.Date)
+                .ToListAsync();
+        }
 
     }
 }
