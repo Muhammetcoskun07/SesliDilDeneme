@@ -102,7 +102,7 @@ namespace SesliDilDeneme.API.Controllers
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null)
                 return NotFound(new ApiResponse<object>("Not found", null));
-
+     
             var user = await _userService.GetByIdAsync(conversationDto.UserId);
             if (user == null)
                 return BadRequest(new ApiResponse<object>("User not found", null));
@@ -190,6 +190,92 @@ namespace SesliDilDeneme.API.Controllers
         {
             var dto = await _conversationService.BuildConversationSummaryComputedAsync(conversationId, samples, highlights);
             return Ok(new ApiResponse<object>("İşlem başarılı.", dto));
+        }
+        [HttpGet("{conversationId}/user-grammar-errors")]
+        public async Task<IActionResult> GetUserGrammarErrors(string conversationId)
+        {
+            var messages = await _conversationService.GetUserMessagesWithGrammarErrorsAsync(conversationId);
+
+            var result = messages.Select(m => new
+            {
+                m.MessageId,
+                m.Content,
+                GrammarErrors = m.GrammarErrors,
+                CorrectedText = m.CorrectedText
+            });
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
+        }
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchConversations([FromQuery] string query)
+        {
+            var conversations = await _conversationService.SearchConversationsAsync(query);
+
+            var result = conversations.Select(c => new
+            {
+                c.ConversationId,
+                c.Title,
+                c.Summary,
+                c.UserId,
+                c.AgentId,
+                c.CreatedAt
+            });
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
+        }
+        [HttpGet("user/{userId}/agent/{agentId}/grammar-errors")]
+        public async Task<IActionResult> GetUserGrammarErrorsByAgent(string userId, string agentId)
+        {
+            var messages = await _conversationService.GetUserMessagesWithGrammarErrorsByAgentAsync(userId, agentId);
+
+            var result = messages.Select(m => new
+            {
+                m.MessageId,
+                m.ConversationId,
+                m.Content,
+                GrammarErrors = m.GrammarErrors,
+                CorrectedText=m.CorrectedText
+            });
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
+        }
+        [HttpGet("user/{userId}/agent/{agentId}/conversations")]
+        public async Task<IActionResult> GetConversationsByUserAndAgent(string userId, string agentId)
+        {
+            var conversations = await _conversationService.GetConversationsByUserAndAgentAsync(userId, agentId);
+
+            var result = conversations.Select(c => new
+            {
+                c.ConversationId,
+                c.Title,
+                c.Language,
+                c.StartedAt,
+                c.CreatedAt,
+                c.DurationMinutes,
+                c.Summary
+            });
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
         }
     }
 }

@@ -19,7 +19,6 @@ namespace SesliDil.Data.Context
         public DbSet<User> Users { get; set; }
         public DbSet<Conversation> Conversations { get; set; }
         public DbSet<Message> Messages { get; set; }
-        public DbSet<FileStorage> FileStorages { get; set; }
         public DbSet<Progress> Progresses { get; set; }
         public DbSet<AIAgent> AIAgents { get; set; }
         public DbSet<Session> Sessions { get; set; } 
@@ -81,19 +80,6 @@ namespace SesliDil.Data.Context
                 entity.HasOne(e => e.Conversation).WithMany(c => c.Messages).HasForeignKey(e => e.ConversationId);
             });
 
-            modelBuilder.Entity<FileStorage>(entity =>
-            {
-                entity.ToTable("FileStorage");
-                entity.HasKey(e => e.FileId);
-                entity.Property(e => e.FileId).ValueGeneratedOnAdd();
-                entity.Property(e => e.UserId).IsRequired().HasMaxLength(36);
-                entity.Property(e => e.ConversationId).IsRequired().HasMaxLength(36);
-                entity.Property(e => e.FileName).IsRequired().HasMaxLength(255);
-                entity.Property(e => e.FileURL).IsRequired().HasMaxLength(1000);
-                entity.Property(e => e.UploadDate).IsRequired();
-                entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
-                entity.HasOne(e => e.Conversation).WithMany(c => c.Files).HasForeignKey(e => e.ConversationId);
-            });
 
             modelBuilder.Entity<Conversation>(entity =>
             {

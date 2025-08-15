@@ -15,6 +15,7 @@ namespace SesliDil.Core.DTOs
         public int CurrentStreakDays { get; set; }
         public int LongestStreakDays { get; set; }
         public string CurrentLevel { get; set; } // A1 - C2
+        public double BestWordsPerMinute { get; set; } // Best WPM achieved by the user
         public DateTime LastConversationDate { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

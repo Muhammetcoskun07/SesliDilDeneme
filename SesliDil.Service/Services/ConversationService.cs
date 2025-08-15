@@ -84,7 +84,16 @@ namespace SesliDil.Service.Services
             _conversationRepository.Update(conv);
             await _conversationRepository.SaveChangesAsync();
         }
-
+        public async Task<int> DeleteEmptyConversationsAsync()
+        {
+            var deleted = await _dbContext.Database.ExecuteSqlRawAsync(@"
+        DELETE FROM ""Conversation"" c
+        WHERE NOT EXISTS (
+            SELECT 1 FROM ""Message"" m WHERE m.""ConversationId"" = c.""ConversationId""
+        )
+    ");
+            return deleted;
+        }
         public async Task EndConversationAsync(string conversationId, bool forceEnd = true)
         {
             var conversation = await GetByIdAsync<string>(conversationId);
@@ -254,5 +263,56 @@ namespace SesliDil.Service.Services
                      .Take(k)
                      .ToList();
         }
+        public async Task<List<Message>> GetUserMessagesWithGrammarErrorsAsync(string conversationId)
+        {
+            return await _dbContext.Messages
+                .Where(m => m.ConversationId == conversationId
+                            && m.Role == "user"
+                            && m.GrammarErrors != null
+                            && m.GrammarErrors.Any())
+                .ToListAsync();
+        }
+        public async Task<List<Conversation>> SearchConversationsAsync(string searchText)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+                return new List<Conversation>();
+
+            return await _dbContext.Conversations
+                .Where(c =>
+                    EF.Functions.ILike(c.Title, $"%{searchText}%") ||
+                    EF.Functions.ILike(c.Summary, $"%{searchText}%")
+                )
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+        }
+        public async Task<List<Message>> GetUserMessagesWithGrammarErrorsByAgentAsync(string userId, string agentId)
+        {
+            // Önce o user-agent conversationlarını bul
+            var conversationIds = await _dbContext.Conversations
+                .Where(c => c.UserId == userId && c.AgentId == agentId)
+                .Select(c => c.ConversationId)
+                .ToListAsync();
+
+            if (!conversationIds.Any())
+                return new List<Message>();
+
+            // Sonra user mesajlarını al, grammarErrors boş olmayanları filtrele
+            var messages = await _dbContext.Messages
+                .Where(m => conversationIds.Contains(m.ConversationId)
+                            && m.Role == "user"
+                            && m.GrammarErrors != null
+                            && m.GrammarErrors.Any())
+                .ToListAsync();
+
+            return messages;
+        }
+        public async Task<List<Conversation>> GetConversationsByUserAndAgentAsync(string userId, string agentId)
+        {
+            return await _dbContext.Conversations
+                .Where(c => c.UserId == userId && c.AgentId == agentId)
+                .OrderByDescending(c => c.CreatedAt) 
+                .ToListAsync();
+        }
+
     }
 }

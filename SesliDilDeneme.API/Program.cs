@@ -29,10 +29,10 @@ builder.Services.AddScoped<ConversationService>();
 builder.Services.AddScoped<MessageService>();
 builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<AIAgentService>();
-builder.Services.AddScoped<FileStorageService>();
 builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<TtsService>();
 builder.Services.AddHostedService<AudioCleanupService>();
+builder.Services.AddHostedService<CleanupService>();
 builder.Services.AddSingleton<AgentActivityService>();
 builder.Services.AddScoped<IUserDailyActivityService, UserDailyActivityService>();
 builder.Services.AddScoped<IAgentActivityStatsService, AgentActivityStatsService>();
@@ -51,7 +51,6 @@ builder.Services.AddHttpClient();
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<UserValidator>());
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<ProgressValidator>());
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<MessageValidator>());
-builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<FileStorageValidator>());
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<ConversationValidator>());
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<AIAgentValidator>());
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<SendMessageRequestValidator>());
@@ -101,13 +100,13 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate(); 
 }
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowAll");
 
 
 app.UseAuthentication(); // ÖNCE Authentication
 app.UseAuthorization();  // SONRA Authorization
-app.UseStaticFiles();;
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();

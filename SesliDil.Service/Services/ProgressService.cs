@@ -61,7 +61,7 @@ namespace SesliDil.Service.Services
             if (progress.CurrentStreakDays > progress.LongestStreakDays)
                 progress.LongestStreakDays = progress.CurrentStreakDays;
 
-            progress.CurrentLevel = DetermineLevel(progress.TotalConversationTimeMinutes);
+            progress.CurrentLevel = DetermineLevel((int)progress.BestWordsPerMinute);
 
             _progressRepository.Update(progress);
             await _progressRepository.SaveChangesAsync();
@@ -78,14 +78,14 @@ namespace SesliDil.Service.Services
             return userProgress;
         }
 
-        private string DetermineLevel(int totalMinutes)
+        private string DetermineLevel(int wpm)
         {
-            if (totalMinutes < 60) return "A1";      // 1 saat
-            if (totalMinutes < 120) return "A2";     // 2 saat
-            if (totalMinutes < 240) return "B1";     // 4 saat
-            if (totalMinutes < 480) return "B2";     // 8 saat
-            if (totalMinutes < 960) return "C1";     // 16 saat
-            return "C2";                             // 16+ saat
+            if (wpm <= 60) return "A1  I know basic words and simple phrases";
+            if (wpm <= 80) return "A2  I can carry on basic conversations";
+            if (wpm <= 100) return "B1  I know basic words and simple phrases";
+            if (wpm <= 120) return "B2  I can discuss various topics with ease";
+            if (wpm <= 140) return "C1  I speak confidently in complex situations";
+            return "C2  I speak like a native in all contexts";
         }
     }
 }

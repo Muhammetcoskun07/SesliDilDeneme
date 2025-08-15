@@ -65,7 +65,7 @@ namespace SesliDil.Data.Repositories
         {
             return _dbSet.AsQueryable();
         }
-
+        
         public Task UpdateAsync(Conversation conversation)
         {
             throw new NotImplementedException();
@@ -75,6 +75,14 @@ namespace SesliDil.Data.Repositories
             return await _context.Conversations
                                  .Include(c => c.Messages)
                                  .FirstOrDefaultAsync(c => c.ConversationId == id);
+        }
+        public async Task<List<Message>> GetByConversationIdAsync(string conversationId)
+        {
+            // This assumes the repository is instantiated as Repository<Message>
+            return await _dbSet
+                .OfType<Message>() // Ensure T is Message, but since it's generic, use when T=Message
+                .Where(m => m.ConversationId == conversationId)
+                .ToListAsync();
         }
     }
 }

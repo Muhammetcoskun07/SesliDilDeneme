@@ -1,14 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SesliDil.Core.DTOs;
@@ -56,73 +49,137 @@ namespace SesliDil.Service.Services
 
         public async Task<MessageDto> SendMessageAsync(SendMessageRequest request)
         {
-            _logger.LogInformation($"SendMessageAsync called with ConversationId={request.ConversationId}, UserId={request.UserId}, AgentId={request.AgentId}, Content={request.Content}");
-
             if (request == null || string.IsNullOrWhiteSpace(request.Content) || string.IsNullOrWhiteSpace(request.AgentId))
-            {
-                _logger.LogWarning("Invalid input in SendMessageAsync");
                 throw new ArgumentException("Invalid input");
-            }
-            if (string.IsNullOrWhiteSpace(request.ConversationId))
-            {
-                _logger.LogError("ConversationId is missing!");
-            }
+
             var user = await _userRepository.GetByIdAsync(request.UserId);
             if (user == null)
                 throw new ArgumentException("User not found");
 
-            if (string.IsNullOrWhiteSpace(user.TargetLanguage))
-                throw new ArgumentException("User's target language is not specified");
+            if (string.IsNullOrWhiteSpace(user.TargetLanguage) || string.IsNullOrWhiteSpace(user.NativeLanguage))
+                throw new ArgumentException("User's languages are not specified");
 
-            if (string.IsNullOrWhiteSpace(user.NativeLanguage))
-                throw new ArgumentException("User's native language is not specified");
+            // Agent prompt ve kullanıcı profili dahil et
+            string learningGoals = user.LearningGoals != null ? JsonSerializer.Serialize(user.LearningGoals) : "";
+            string improvementGoals = user.ImprovementGoals != null ? JsonSerializer.Serialize(user.ImprovementGoals) : "";
+            string topicInterests = user.TopicInterests != null ? JsonSerializer.Serialize(user.TopicInterests) : "";
 
-            // Kullanıcının gönderdiği mesajı, native diline çeviriyoruz (örneğin: kullanıcı Türkçe yazıyorsa, nativeLanguage = "tr")
+            var agent = await _agentRepository.GetByIdAsync(request.AgentId);
+            if (agent == null || !agent.IsActive)
+                throw new ArgumentException("Invalid or inactive agent");
+
+            // Prompt - Kullanıcının mesajını düzelt + cevapla + çevir + hata listesi
+            var prompt = $@"
+You are a helpful language tutor.
+
+The learner's message: ""{request.Content}""
+
+Tasks:
+1. Identify **all** grammar mistakes in the learner's original message in {user.TargetLanguage}. Even small mistakes (accents, missing articles, word order) should be listed.
+2. Provide the corrected version of the learner's message in {user.TargetLanguage} without changing its meaning.
+3. Respond to the corrected message in {user.TargetLanguage}.
+4. Translate your response into the learner's native language ({user.NativeLanguage}).
+
+Return strictly JSON in this exact format:
+{{
+  ""correctedText"": ""..."",
+  ""aiText"": ""..."",
+  ""translatedContent"": ""..."",
+  ""grammarErrors"": [""..."", ""...""]
+}}
+Always fill 'grammarErrors' with every issue found. If there are no mistakes, return an empty array.
+";
+
+            var messages = new List<object>
+    {
+        new
+        {
+            role = "system",
+            content = $@"{agent.AgentPrompt ?? ""}
+
+Here is the learner's profile:
+- Native language: {user.NativeLanguage}
+- Target language: {user.TargetLanguage}
+- Proficiency level: {user.ProficiencyLevel}
+- Age range: {user.AgeRange}
+- Weekly speaking goal: {user.WeeklySpeakingGoal}
+- Learning goals: {learningGoals}
+- Improvement goals: {improvementGoals}
+- Topic interests: {topicInterests}
+
+Tailor your answers to their goals and preferences."
+        },
+        new { role = "user", content = prompt }
+    };
+
+            var requestBody = new
+            {
+                model = "gpt-4o",
+                messages = messages,
+                temperature = 0.7
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
+            var jsonText = result?.Choices?.FirstOrDefault()?.Message?.Content ?? "{}";
+
+            // JSON temizleme
+            jsonText = jsonText.Trim();
+            if (jsonText.StartsWith("```"))
+            {
+                int firstBrace = jsonText.IndexOf('{');
+                int lastBrace = jsonText.LastIndexOf('}');
+                if (firstBrace >= 0 && lastBrace > firstBrace)
+                    jsonText = jsonText.Substring(firstBrace, lastBrace - firstBrace + 1);
+            }
+
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(jsonText);
+
+            var correctedText = parsed["correctedText"].GetString();
+            var aiText = parsed["aiText"].GetString();
+            var translatedContent = parsed["translatedContent"].GetString();
+            var grammarErrors = parsed["grammarErrors"].EnumerateArray().Select(e => e.GetString()).ToList();
+
+            // Kullanıcı mesajını DB'ye kaydet (CorrectedText ve GrammarErrors eklenmiş)
             var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
                 ConversationId = request.ConversationId,
                 Role = "user",
                 Content = request.Content,
+                CorrectedText = correctedText,
+                GrammarErrors = grammarErrors,
                 CreatedAt = DateTime.UtcNow,
-                SpeakerType = "user",
-                GrammarErrors = new List<string>(),
-                TranslatedContent = await TranslateAsync(request.Content, user.NativeLanguage, request.AgentId)
+                SpeakerType = "user"
             };
-
-            userMessage.GrammarErrors = await CheckGrammarAsync(request.Content, request.AgentId);
             await CreateAsync(userMessage);
 
-            // AI cevabını kullanıcı hedef dilinde alıyoruz (örneğin "es" İspanyolca)
-            var aiResponseText = await GetAIResponseAsync(request.Content, user.TargetLanguage, request.AgentId, request.ConversationId);
-
-            // AI cevabını kullanıcının native diline çeviriyoruz (örneğin İngilizce)
-            var translatedContent = await TranslateAsync(aiResponseText, user.NativeLanguage, request.AgentId);
-
-            // TTS → Byte[] ses dosyası al, burada hedef dili kullanabiliriz
-            var voice = GetVoiceByLanguage(user.TargetLanguage); // Mesela "spanish" için "shimmer"
-            var audioBytes = await _ttsService.ConvertTextToSpeechAsync(aiResponseText, voice);
-
-            // Byte[] → mp3 olarak kaydet ve URL al
+            // AI mesajını TTS ile mp3’e çevir
+            var voice = GetVoiceByLanguage(user.TargetLanguage);
+            var audioBytes = await _ttsService.ConvertTextToSpeechAsync(aiText, voice);
             var audioUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
 
+            // AI mesajını kaydet
             var aiMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
                 ConversationId = userMessage.ConversationId,
                 Role = "assistant",
-                Content = aiResponseText,              // AI cevabı hedef dilde
+                Content = aiText,
+                TranslatedContent = translatedContent,
+                AudioUrl = audioUrl,
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "assistant",
-                GrammarErrors = new List<string>(),
-                TranslatedContent = translatedContent, // AI cevabının native dil çevirisi
-                AudioUrl = audioUrl
             };
-
             await CreateAsync(aiMessage);
-
-            return _mapper.Map<MessageDto>(aiMessage);
+            var responseDto = _mapper.Map<MessageDto>(aiMessage);
+            responseDto.CorrectedText = correctedText;
+            responseDto.GrammarErrors = grammarErrors;
+            return responseDto;
         }
+
 
         private string GetVoiceByLanguage(string language)
         {
@@ -182,23 +239,6 @@ namespace SesliDil.Service.Services
 
             var audioStream = await response.Content.ReadAsStreamAsync();
             return "https://your-storage-bucket/speech.mp3";
-        }
-
-        public async Task<string> ConvertSpeechToTextAsync(string audioUrl)
-        {
-            var audioContent = await DownloadAudioAsync(audioUrl);
-
-            using var content = new MultipartFormDataContent
-    {
-        { new StreamContent(new MemoryStream(audioContent)), "file", "audio.mp3" },
-        { new StringContent("whisper-1"), "model" }
-    };
-
-            var response = await _httpClient.PostAsync("audio/transcriptions", content);
-            response.EnsureSuccessStatusCode();
-
-            var result = await response.Content.ReadFromJsonAsync<TranscriptionResponse>();
-            return result.Text;
         }
 
         public async Task<string> TranslateAsync(string text, string nativeLanguage, string agentId)
@@ -269,22 +309,40 @@ namespace SesliDil.Service.Services
             using var client = new HttpClient();
             return await client.GetByteArrayAsync(audioUrl);
         }
-        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId, string conversationId)
+        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId, string conversationId, string userId)
         {
             var agent = await _agentRepository.GetByIdAsync(agentId);
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new ArgumentException("User not found", nameof(userId));
 
-            // Konuşma geçmişini al
-            var messages = await _messageRepository.GetAllAsync();
-           
+            // JSON alanlarını string'e çevir
+            string learningGoals = user.LearningGoals != null ? JsonSerializer.Serialize(user.LearningGoals) : "";
+            string improvementGoals = user.ImprovementGoals != null ? JsonSerializer.Serialize(user.ImprovementGoals) : "";
+            string topicInterests = user.TopicInterests != null ? JsonSerializer.Serialize(user.TopicInterests) : "";
 
-            // Sistem prompt'u ve konuşma geçmişini birleştir
             var promptMessages = new List<object>
-            {
-                new { role = "system", content = $"{agent.AgentPrompt}\nYou are a helpful assistant responding in {targetLanguage}." }
-            };
-           
+{
+    new
+    {
+        role = "system",
+        content = $@"{agent.AgentPrompt}
+You are a helpful language tutor responding in {targetLanguage}.
+Here is the learner's profile:
+- Native language: {user.NativeLanguage}
+- Target language: {user.TargetLanguage}
+- Proficiency level: {user.ProficiencyLevel}
+- Age range: {user.AgeRange}
+- Weekly speaking goal: {user.WeeklySpeakingGoal}
+- Learning goals: {learningGoals}
+- Improvement goals: {improvementGoals}
+- Topic interests: {topicInterests}
+Tailor your answers to their goals and preferences."
+    }
+};
+
             promptMessages.Add(new { role = "user", content = userInput });
 
             var requestBody = new
