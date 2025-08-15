@@ -18,10 +18,10 @@ namespace SesliDil.Service.Interfaces
         Task<IEnumerable<UserDailyActivityDto>> GetByUserAndDatesAsync(string userId, List<DateTime> dates);
         Task<double> GetTodaySpeakingCompletionRateAsync(string userId);
         Task<List<UserDailyActivity>> GetActivitiesByDaysAsync(string userId, List<DayOfWeek> days);
-        Task<List<UserDailyActivity>> GetActivitiesByDatesOrDaysAsync(
-         string userId,
-        List<DateTime>? dates = null,
-         List<DayOfWeek>? days = null);
+        //Task<List<UserDailyActivity>> GetActivitiesByDatesOrDaysAsync(
+        // string userId,
+        //List<DateTime>? dates = null,
+        // List<DayOfWeek>? days = null);
 
     }
 }
