@@ -211,5 +211,48 @@ namespace SesliDilDeneme.API.Controllers
                 body = result
             });
         }
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchConversations([FromQuery] string query)
+        {
+            var conversations = await _conversationService.SearchConversationsAsync(query);
+
+            var result = conversations.Select(c => new
+            {
+                c.ConversationId,
+                c.Title,
+                c.Summary,
+                c.UserId,
+                c.AgentId,
+                c.CreatedAt
+            });
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
+        }
+        [HttpGet("user/{userId}/agent/{agentId}/grammar-errors")]
+        public async Task<IActionResult> GetUserGrammarErrorsByAgent(string userId, string agentId)
+        {
+            var messages = await _conversationService.GetUserMessagesWithGrammarErrorsByAgentAsync(userId, agentId);
+
+            var result = messages.Select(m => new
+            {
+                m.MessageId,
+                m.ConversationId,
+                m.Content,
+                GrammarErrors = m.GrammarErrors,
+                CorrectedText=m.CorrectedText
+            });
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
+        }
     }
 }
