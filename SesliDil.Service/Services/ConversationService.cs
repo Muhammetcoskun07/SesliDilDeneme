@@ -294,6 +294,40 @@ namespace SesliDil.Service.Services
                             && m.GrammarErrors.Any())
                 .ToListAsync();
         }
+        public async Task<List<Conversation>> SearchConversationsAsync(string searchText)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+                return new List<Conversation>();
+
+            return await _dbContext.Conversations
+                .Where(c =>
+                    EF.Functions.ILike(c.Title, $"%{searchText}%") ||
+                    EF.Functions.ILike(c.Summary, $"%{searchText}%")
+                )
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+        }
+        public async Task<List<Message>> GetUserMessagesWithGrammarErrorsByAgentAsync(string userId, string agentId)
+        {
+            // Önce o user-agent conversationlarını bul
+            var conversationIds = await _dbContext.Conversations
+                .Where(c => c.UserId == userId && c.AgentId == agentId)
+                .Select(c => c.ConversationId)
+                .ToListAsync();
+
+            if (!conversationIds.Any())
+                return new List<Message>();
+
+            // Sonra user mesajlarını al, grammarErrors boş olmayanları filtrele
+            var messages = await _dbContext.Messages
+                .Where(m => conversationIds.Contains(m.ConversationId)
+                            && m.Role == "user"
+                            && m.GrammarErrors != null
+                            && m.GrammarErrors.Any())
+                .ToListAsync();
+
+            return messages;
+        }
 
     }
 }
