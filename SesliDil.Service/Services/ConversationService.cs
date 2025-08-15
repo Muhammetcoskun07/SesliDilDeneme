@@ -1,14 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.EntityFrameworkCore;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
-using SesliDil.Core.Mappings;
 using SesliDil.Data.Context;
 using SesliDil.Service.Interfaces;
 
@@ -20,7 +18,7 @@ namespace SesliDil.Service.Services
         private readonly IMapper _mapper;
         private readonly SesliDilDbContext _dbContext;
 
-        public ConversationService(IRepository<Conversation> conversationRepository, IMapper mapper,SesliDilDbContext dbContext)
+        public ConversationService(IRepository<Conversation> conversationRepository, IMapper mapper, SesliDilDbContext dbContext)
             : base(conversationRepository, mapper)
         {
             _dbContext = dbContext;
@@ -49,17 +47,16 @@ namespace SesliDil.Service.Services
                 throw new Exception("Conversation not found");
 
             return _mapper.Map<ConversationSummaryDto>(conversation);
-
-  
         }
+
         public async Task<string> SaveAgentActivityAsync(
-     string conversationId,
-     string userId,
-     string agentId,
-     TimeSpan duration,
-     int messageCount,
-     int wordCount,
-     double wordsPerMinute)
+            string conversationId,
+            string userId,
+            string agentId,
+            TimeSpan duration,
+            int messageCount,
+            int wordCount,
+            double wordsPerMinute)
         {
             var activity = new ConversationAgentActivity
             {
@@ -77,16 +74,16 @@ namespace SesliDil.Service.Services
             await _dbContext.SaveChangesAsync();
             return activity.ActivityId;
         }
+
         public async Task SaveSummaryAsync(string conversationId, string summary)
         {
             var conv = await _conversationRepository.GetByIdAsync(conversationId);
             if (conv == null) throw new Exception("Conversation bulunamadı");
 
             conv.Summary = summary;
-            _conversationRepository.Update(conv);            
+            _conversationRepository.Update(conv);
             await _conversationRepository.SaveChangesAsync();
         }
-
 
         public async Task EndConversationAsync(string conversationId, bool forceEnd = true)
         {
@@ -102,7 +99,7 @@ namespace SesliDil.Service.Services
 
             await UpdateAsync(conversation);
         }
-        // === SAFE ADD: Conversation'dan hesaplanmış özet (reflection ile, enum/alan bağımsız) ===
+
         public async Task<ConversationSummaryDto> BuildConversationSummaryComputedAsync(
             string conversationId, int sampleCount = 3, int highlightCount = 3)
         {
@@ -115,6 +112,7 @@ namespace SesliDil.Service.Services
 
             var messages = conv.Messages?.OrderBy(m => m.CreatedAt).ToList() ?? new List<Message>();
 
+            // Handle conversations with no messages gracefully
             if (messages.Count == 0)
             {
                 return new ConversationSummaryDto
@@ -122,7 +120,6 @@ namespace SesliDil.Service.Services
                     ConversationId = conv.ConversationId,
                     Summary = conv.Summary ?? "",
                     DurationSeconds = 0,
-                    FluencyWpm = 0,
                     MistakesCount = 0,
                     MistakeSamples = new List<MistakeSampleDto>(),
                     TotalWords = 0,
@@ -137,22 +134,16 @@ namespace SesliDil.Service.Services
 
             var first = messages.First().CreatedAt;
             var last = messages.Last().CreatedAt;
-            var durationSec = System.Math.Max((int)(last - first).TotalSeconds, 1);
+            var durationSec = Math.Max((int)(last - first).TotalSeconds, 1);
 
-            // SenderType / IsFromUser / Sender / Role vs. ne varsa otomatik yakalar
             var userMsgs = messages.Where(IsUserMessageDynamic).ToList();
 
-            // Kelime sayısı & WPM
             int totalWords = 0;
             foreach (var m in userMsgs)
             {
-                totalWords += System.Text.RegularExpressions.Regex
-                    .Matches(m.Content ?? string.Empty, @"\b[\w']+\b").Count;
+                totalWords += Regex.Matches(m.Content ?? string.Empty, @"\b[\w']+\b").Count;
             }
-            var minutes = System.Math.Max(durationSec / 60.0, 0.5);
-            int wpm = (int)System.Math.Round(totalWords / minutes);
 
-            // CorrectedText varsa örnekleri çıkar (yoksa 0 döner)
             var samples = new List<MistakeSampleDto>();
             foreach (var m in userMsgs)
             {
@@ -163,16 +154,15 @@ namespace SesliDil.Service.Services
                     samples.Add(new MistakeSampleDto { Original = m.Content ?? "", Corrected = corrected });
                 }
             }
-            samples = samples.Take(System.Math.Clamp(sampleCount, 3, 5)).ToList();
+            samples = samples.Take(Math.Clamp(sampleCount, 3, 5)).ToList();
 
-            // Count değerlerini önce al (method-group hatasını önler)
             int messageCount = messages.Count;
             int userMessageCount = userMsgs.Count;
             int agentMessageCount = messageCount - userMessageCount;
 
             var highlights = ExtractHighlightsInternal(
                 userMsgs.Select(x => x.Content ?? string.Empty),
-                System.Math.Clamp(highlightCount, 3, 5)
+                Math.Clamp(highlightCount, 3, 5)
             );
 
             return new ConversationSummaryDto
@@ -180,7 +170,6 @@ namespace SesliDil.Service.Services
                 ConversationId = conv.ConversationId,
                 Summary = conv.Summary ?? "",
                 DurationSeconds = durationSec,
-                FluencyWpm = wpm,
                 MistakesCount = samples.Count,
                 MistakeSamples = samples,
                 TotalWords = totalWords,
@@ -193,22 +182,18 @@ namespace SesliDil.Service.Services
             };
         }
 
-        // === Helpers (alan isimleri ne olursa olsun çalışır) ===
         private static bool IsUserMessageDynamic(Message m)
         {
-            // bool bayraklar
             var b = GetPropBool(m, "IsFromUser") ?? GetPropBool(m, "IsUser");
             if (b.HasValue) return b.Value;
 
-            // string/enum temsili
             var s = GetPropString(m, "SenderType")
-                 ?? GetPropString(m, "Sender")
-                 ?? GetPropString(m, "Role")
-                 ?? GetPropString(m, "Source");
+                     ?? GetPropString(m, "Sender")
+                     ?? GetPropString(m, "Role")
+                     ?? GetPropString(m, "Source");
             if (!string.IsNullOrEmpty(s))
                 return string.Equals(s, "user", StringComparison.OrdinalIgnoreCase);
 
-            // Varsayılan: user değil
             return false;
         }
 
@@ -228,17 +213,16 @@ namespace SesliDil.Service.Services
             return p == null ? null : p.GetValue(obj)?.ToString();
         }
 
-        // === aynı dosyada zaten eklemiştim ama tekrar lazım olursa: ===
         private static List<string> ExtractHighlightsInternal(IEnumerable<string> texts, int k)
         {
             var stop = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "a","an","the","and","or","but","if","then","so","to","of","in","on","for","with",
-        "at","by","from","as","is","are","was","were","be","been","am","i","you","he","she",
-        "it","we","they","me","him","her","them","my","your","our","their","this","that",
-        "these","those","there","here","what","which","who","can","could","should","would",
-        "will","just","do","does","did","done","have","has","had"
-    };
+            {
+                "a", "an", "the", "and", "or", "but", "if", "then", "so", "to", "of", "in", "on", "for", "with",
+                "at", "by", "from", "as", "is", "are", "was", "were", "be", "been", "am", "i", "you", "he", "she",
+                "it", "we", "they", "me", "him", "her", "them", "my", "your", "our", "their", "this", "that",
+                "these", "those", "there", "here", "what", "which", "who", "can", "could", "should", "would",
+                "will", "just", "do", "does", "did", "done", "have", "has", "had"
+            };
 
             var uni = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var bi = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -247,15 +231,8 @@ namespace SesliDil.Service.Services
             {
                 if (string.IsNullOrWhiteSpace(text)) continue;
 
-                var matches = System.Text.RegularExpressions.Regex.Matches(
-                    text.ToLowerInvariant(), @"\b[\w']+\b");
-
-                var toks = new List<string>();
-                foreach (System.Text.RegularExpressions.Match m in matches)
-                {
-                    var tok = m.Value;
-                    if (!stop.Contains(tok)) toks.Add(tok);
-                }
+                var matches = Regex.Matches(text.ToLowerInvariant(), @"\b[\w']+\b");
+                var toks = matches.Cast<Match>().Select(m => m.Value).Where(t => !stop.Contains(t)).ToList();
 
                 for (int i = 0; i < toks.Count; i++)
                 {
@@ -277,6 +254,5 @@ namespace SesliDil.Service.Services
                      .Take(k)
                      .ToList();
         }
-
     }
 }
