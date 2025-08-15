@@ -87,13 +87,13 @@ namespace SesliDil.Service.Services
 
             return _mapper.Map<IEnumerable<UserDailyActivityDto>>(entities);
         }
-        public async Task<List<UserDailyActivity>> GetActivitiesByDaysAsync(string userId, List<DayOfWeek> days)
-        {
-            return await _context.UserDailyActivities
-                .Where(x => x.UserId == userId &&
-                            days.Contains(x.Date.DayOfWeek))
-                .ToListAsync();
-        }
+        //public async Task<List<UserDailyActivity>> GetActivitiesByDaysAsync(string userId, List<DayOfWeek> days)
+        //{
+        //    return await _context.UserDailyActivities
+        //        .Where(x => x.UserId == userId &&
+        //                    days.Contains(x.Date.DayOfWeek))
+        //        .ToListAsync();
+        //}
         public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
         {
             var user = await _userService.GetByIdAsync(userId);
