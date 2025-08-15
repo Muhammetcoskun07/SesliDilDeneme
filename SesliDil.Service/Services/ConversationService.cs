@@ -328,6 +328,13 @@ namespace SesliDil.Service.Services
 
             return messages;
         }
+        public async Task<List<Conversation>> GetConversationsByUserAndAgentAsync(string userId, string agentId)
+        {
+            return await _dbContext.Conversations
+                .Where(c => c.UserId == userId && c.AgentId == agentId)
+                .OrderByDescending(c => c.CreatedAt) 
+                .ToListAsync();
+        }
 
     }
 }
