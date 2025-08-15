@@ -4,7 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;   // <-- ToListAsync(), EF.Functions, ExecuteSqlRawAsync için
+using System.Linq;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
