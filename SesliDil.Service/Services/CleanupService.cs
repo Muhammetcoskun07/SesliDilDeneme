@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
 
 namespace SesliDil.Service.Services
 {
@@ -30,8 +31,8 @@ namespace SesliDil.Service.Services
                     using var scope = _serviceProvider.CreateScope();
                     var conversationService = scope.ServiceProvider.GetRequiredService<ConversationService>();
 
-                   // int deletedCount = await conversationService.DeleteEmptyConversationsAsync();
-                    //Console.WriteLine($"[{DateTime.Now}] Boş conversationlar temizlendi. Silinen kayıt sayısı: {deletedCount}");
+                    int deletedCount = await conversationService.DeleteEmptyConversationsAsync();
+                    Console.WriteLine($"[{DateTime.Now}] Boş conversationlar temizlendi. Silinen kayıt sayısı: {deletedCount}");
                 }
                 catch (Exception ex)
                 {
