@@ -97,31 +97,15 @@ namespace SesliDil.Service.Services
         public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
         {
             var user = await _userService.GetByIdAsync(userId);
-            Console.WriteLine($"User: {user?.UserId}");
-
             if (user == null)
                 return 0;
-
-            Console.WriteLine($"WeeklySpeakingGoal: '{user?.WeeklySpeakingGoal}'");
-
             int dailyGoal = GetDailyGoalFromString(user.WeeklySpeakingGoal);
-            Console.WriteLine($"DailyGoal: {dailyGoal}");
-
             if (dailyGoal == 0)
                 return 0;
-
             var utcToday = DateTime.Today.ToUniversalTime();
-            Console.WriteLine($"utcToday: {utcToday}");
-
             var activity = await GetByUserAndDateAsync(userId, utcToday);
-            Console.WriteLine($"Activity: {activity}");
-            Console.WriteLine($"MinutesSpent: {activity?.MinutesSpent ?? 0}");
-
             int minutesSpent = activity?.MinutesSpent ?? 0;
-
             double rate = (double)minutesSpent / dailyGoal * 100;
-            Console.WriteLine($"Calculated Rate: {rate}");
-
             return Math.Min(rate, 100);
         }
         private readonly Dictionary<string, int> DailyGoalMapping = new Dictionary<string, int>()
@@ -133,19 +117,11 @@ namespace SesliDil.Service.Services
         };
         private int GetDailyGoalFromString(string goal)
         {
-            if (string.IsNullOrWhiteSpace(goal))
+            if (string.IsNullOrEmpty(goal))
                 return 0;
-
-            goal = goal.Trim().ToLower(); // Normalize et
-            var mapping = new Dictionary<string, int>()
-    {
-        { "5-10 minutes a day".ToLower(), 8 },
-        { "15-20 minutes a day".ToLower(), 18 },
-        { "30 minutes a day".ToLower(), 30 },
-        { "45+ minutes a day".ToLower(), 45 }
-    };
-
-            return mapping.TryGetValue(goal, out int minutes) ? minutes : 0;
+            if (DailyGoalMapping.TryGetValue(goal, out int minutes))
+                return minutes;
+            return 0; // Bilinmeyen hedef için 0 döner
         }
         public async Task<UserAgentStatsDto> GetUserAgentStatsAsync(string userId, string agentId)
         {
