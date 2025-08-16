@@ -103,11 +103,11 @@ namespace SesliDilDeneme.API.Controllers
                 }
             });
         }
-        [HttpGet("completion-rate/{userId}")]
-        public async Task<IActionResult> GetTodaySpeakingCompletionRate(string userId)
+        [HttpGet("{userId}/today-speaking-completion")]
+        public async Task<IActionResult> GetTodaySpeakingCompletion(string userId)
         {
-            double rate = await _service.GetTodaySpeakingCompletionRateAsync(userId);
-            return Ok(rate);
+            var completionRate = await _service.GetTodaySpeakingCompletionRateAsync(userId);
+            return Ok(new { CompletionRate = completionRate });
         }
     }
 
