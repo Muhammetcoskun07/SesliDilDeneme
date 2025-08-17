@@ -75,7 +75,9 @@ You are a helpful language tutor.
 The learner's message: ""{request.Content}""
 
 Tasks:
-1. Identify **all** grammar mistakes in the learner's original message in {user.TargetLanguage}. Even small mistakes (accents, missing articles, word order) should be listed.
+1. Identify **only real grammar mistakes** in the learner's original message in {user.TargetLanguage}. 
+   - Ignore missing punctuation (periods, commas, question marks).
+   - Focus only on grammar issues (verb conjugation, word order, articles, plural/singular, agreement, etc.).
 2. Provide the corrected version of the learner's message in {user.TargetLanguage} without changing its meaning.
 3. Respond to the corrected message in {user.TargetLanguage}.
 4. Translate your response into the learner's native language ({user.NativeLanguage}).
