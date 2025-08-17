@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
 using SesliDil.Service.Services;
@@ -22,15 +23,16 @@ namespace SesliDilDeneme.API.Controllers
 
         private string GetVoiceByLanguage(string language) => "alloy";
         [HttpPost("generate")]
-        public async Task<IActionResult> GenerateTts([FromBody] string text)
+        public async Task<IActionResult> GenerateTts([FromBody] TtsRequest request)
         {
-            
+            if (string.IsNullOrWhiteSpace(request.Text))
+                return BadRequest(new { message = "Invalid request data.", error = "text cannot be empty.", data = (object?)null });
 
             var voice = "alloy";
 
             try
             {
-                var audioBytes = await _ttsService.ConvertTextToSpeechAsync(text, voice);
+                var audioBytes = await _ttsService.ConvertTextToSpeechAsync(request.Text, voice);
                 var audioUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
 
                 return Ok(new
