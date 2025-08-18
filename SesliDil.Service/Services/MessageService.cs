@@ -96,7 +96,7 @@ Return strictly JSON in this exact format:
 Always fill 'grammarErrors' with every issue found. If there are no mistakes, return an empty array.
 ";
 
-            // Mesaj listesi
+            // system prompt
             var messages = new List<object>
     {
         new
@@ -118,13 +118,11 @@ Tailor your answers to their goals and preferences."
         }
     };
 
-            // 🔹 Son AI mesajını al ve ekle
-            var lastAiMessage = await
-                 GetLastMessageAsync(request.ConversationId, role: "assistant");
-
-            if (lastAiMessage != null)
+            // 🔹 Son 5 mesajı (user + assistant) al ve ekle
+            var lastMessages = await GetLastMessagesAsync(request.ConversationId, 5);
+            foreach (var msg in lastMessages)
             {
-                messages.Add(new { role = "assistant", content = lastAiMessage.Content });
+                messages.Add(new { role = msg.Role, content = msg.Content });
             }
 
             // Kullanıcının yeni mesajını ekle
@@ -219,12 +217,14 @@ Tailor your answers to their goals and preferences."
             var filtered = messages.Where(m => m.ConversationId == conversationId);
             return _mapper.Map<IEnumerable<MessageDto>>(filtered);
         }
-        public async Task<Message> GetLastMessageAsync(string conversationId, string role)
+        public async Task<List<Message>> GetLastMessagesAsync(string conversationId, int count = 5)
         {
             return await _context.Messages
-                .Where(m => m.ConversationId == conversationId && m.Role == role)
+                .Where(m => m.ConversationId == conversationId)
                 .OrderByDescending(m => m.CreatedAt)
-                .FirstOrDefaultAsync();
+                .Take(count)
+                .OrderBy(m => m.CreatedAt) // sırayı koru (eski -> yeni)
+                .ToListAsync();
         }
         public async Task<MessageDto> CreateMessageAsync(string conversationId, string role, string content, string audioUrl)
         {
