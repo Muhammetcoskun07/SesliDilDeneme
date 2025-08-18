@@ -2,11 +2,13 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
+using SesliDil.Data.Context;
 using SesliDil.Service.Interfaces;
 
 namespace SesliDil.Service.Services
@@ -15,6 +17,7 @@ namespace SesliDil.Service.Services
     {
         private readonly IRepository<Message> _messageRepository;
         private readonly IMapper _mapper;
+        private readonly SesliDilDbContext _context;
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
         private readonly IRepository<AIAgent> _agentRepository;
@@ -24,6 +27,7 @@ namespace SesliDil.Service.Services
 
         public MessageService(
             TtsService ttsService,
+            SesliDilDbContext context,
             IRepository<Message> messageRepository,
             IMapper mapper,
             HttpClient httpClient,
@@ -41,6 +45,7 @@ namespace SesliDil.Service.Services
             _ttsService = ttsService;
             _logger = logger;
             _agentRepository = agentRepository;
+            _context = context;
 
             _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
             _httpClient.DefaultRequestHeaders.Authorization =
@@ -59,7 +64,6 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(user.TargetLanguage) || string.IsNullOrWhiteSpace(user.NativeLanguage))
                 throw new ArgumentException("User's languages are not specified");
 
-            // Agent prompt ve kullanıcı profili dahil et
             string learningGoals = user.LearningGoals != null ? JsonSerializer.Serialize(user.LearningGoals) : "";
             string improvementGoals = user.ImprovementGoals != null ? JsonSerializer.Serialize(user.ImprovementGoals) : "";
             string topicInterests = user.TopicInterests != null ? JsonSerializer.Serialize(user.TopicInterests) : "";
@@ -68,7 +72,7 @@ namespace SesliDil.Service.Services
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent");
 
-            // Prompt - Kullanıcının mesajını düzelt + cevapla + çevir + hata listesi
+            // Prompt
             var prompt = $@"
 You are a helpful language tutor.
 
@@ -92,6 +96,7 @@ Return strictly JSON in this exact format:
 Always fill 'grammarErrors' with every issue found. If there are no mistakes, return an empty array.
 ";
 
+            // Mesaj listesi
             var messages = new List<object>
     {
         new
@@ -110,9 +115,20 @@ Here is the learner's profile:
 - Topic interests: {topicInterests}
 
 Tailor your answers to their goals and preferences."
-        },
-        new { role = "user", content = prompt }
+        }
     };
+
+            // 🔹 Son AI mesajını al ve ekle
+            var lastAiMessage = await
+                 GetLastMessageAsync(request.ConversationId, role: "assistant");
+
+            if (lastAiMessage != null)
+            {
+                messages.Add(new { role = "assistant", content = lastAiMessage.Content });
+            }
+
+            // Kullanıcının yeni mesajını ekle
+            messages.Add(new { role = "user", content = prompt });
 
             var requestBody = new
             {
@@ -127,7 +143,6 @@ Tailor your answers to their goals and preferences."
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             var jsonText = result?.Choices?.FirstOrDefault()?.Message?.Content ?? "{}";
 
-            // JSON temizleme
             jsonText = jsonText.Trim();
             if (jsonText.StartsWith("```"))
             {
@@ -144,7 +159,7 @@ Tailor your answers to their goals and preferences."
             var translatedContent = parsed["translatedContent"].GetString();
             var grammarErrors = parsed["grammarErrors"].EnumerateArray().Select(e => e.GetString()).ToList();
 
-            // Kullanıcı mesajını DB'ye kaydet (CorrectedText ve GrammarErrors eklenmiş)
+            // Kullanıcı mesajını kaydet
             var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -158,7 +173,7 @@ Tailor your answers to their goals and preferences."
             };
             await CreateAsync(userMessage);
 
-            // AI mesajını TTS ile mp3’e çevir
+            // AI mesajı -> TTS
             var voice = GetVoiceByLanguage(user.TargetLanguage);
             var audioBytes = await _ttsService.ConvertTextToSpeechAsync(aiText, voice);
             var audioUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
@@ -176,6 +191,7 @@ Tailor your answers to their goals and preferences."
                 SpeakerType = "assistant",
             };
             await CreateAsync(aiMessage);
+
             var responseDto = _mapper.Map<MessageDto>(aiMessage);
             responseDto.CorrectedText = correctedText;
             responseDto.GrammarErrors = grammarErrors;
@@ -203,7 +219,13 @@ Tailor your answers to their goals and preferences."
             var filtered = messages.Where(m => m.ConversationId == conversationId);
             return _mapper.Map<IEnumerable<MessageDto>>(filtered);
         }
-
+        public async Task<Message> GetLastMessageAsync(string conversationId, string role)
+        {
+            return await _context.Messages
+                .Where(m => m.ConversationId == conversationId && m.Role == role)
+                .OrderByDescending(m => m.CreatedAt)
+                .FirstOrDefaultAsync();
+        }
         public async Task<MessageDto> CreateMessageAsync(string conversationId, string role, string content, string audioUrl)
         {
             if (string.IsNullOrEmpty(conversationId) || string.IsNullOrEmpty(role) || string.IsNullOrEmpty(content))
