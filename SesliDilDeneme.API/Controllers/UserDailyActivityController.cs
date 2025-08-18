@@ -107,7 +107,16 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<IActionResult> GetTodaySpeakingCompletion(string userId)
         {
             var completionRate = await _service.GetTodaySpeakingCompletionRateAsync(userId);
-            return Ok(new { CompletionRate = completionRate });
+            return Ok(new
+            {
+                message = "Today's speaking completion rate retrieved successfully.",
+                error = (string?)null,
+                data = new
+                {
+                    userId,
+                    completionRate
+                }
+            });
         }
     }
 
