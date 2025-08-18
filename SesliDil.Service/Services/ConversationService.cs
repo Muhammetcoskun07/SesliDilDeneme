@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;   // <-- ToListAsync(), EF.Functions, ExecuteSqlRawAsync için
-
+using System.Text.RegularExpressions;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
@@ -112,7 +112,7 @@ namespace SesliDil.Service.Services
         }
 
         public async Task<ConversationSummaryDto> BuildConversationSummaryComputedAsync(
-            string conversationId, int sampleCount = 3, int highlightCount = 3)
+          string conversationId, int sampleCount = 3, int highlightCount = 3)
         {
             if (string.IsNullOrEmpty(conversationId))
                 throw new ArgumentException("Invalid Conversation Id");
@@ -123,7 +123,7 @@ namespace SesliDil.Service.Services
 
             var messages = conv.Messages?.OrderBy(m => m.CreatedAt).ToList() ?? new List<Message>();
 
-            // Handle conversations with no messages gracefully
+            // No messages
             if (messages.Count == 0)
             {
                 return new ConversationSummaryDto
@@ -147,30 +147,38 @@ namespace SesliDil.Service.Services
             var last = messages.Last().CreatedAt;
             var durationSec = Math.Max((int)(last - first).TotalSeconds, 1);
 
+            // --- SUMMARY: konuşmadan otomatik üret ---
+            string computedSummary = ComputeSummaryFromConversation(messages);
+            if (string.IsNullOrWhiteSpace(computedSummary))
+                computedSummary = conv.Summary ?? ""; // Son çare
+
+            // --- Counters / stats ---
             var userMsgs = messages.Where(IsUserMessageDynamic).ToList();
 
             int totalWords = 0;
             foreach (var m in userMsgs)
-            {
                 totalWords += Regex.Matches(m.Content ?? string.Empty, @"\b[\w']+\b").Count;
-            }
 
+            // Mistake samples (CorrectedText != Content)
             var samples = new List<MistakeSampleDto>();
             foreach (var m in userMsgs)
             {
                 var corrected = GetPropString(m, "CorrectedText");
+                var original = m.Content ?? "";
                 if (!string.IsNullOrWhiteSpace(corrected) &&
-                    !string.Equals((m.Content ?? "").Trim(), corrected.Trim(), StringComparison.OrdinalIgnoreCase))
+                    !string.Equals(original.Trim(), corrected.Trim(), StringComparison.OrdinalIgnoreCase))
                 {
-                    samples.Add(new MistakeSampleDto { Original = m.Content ?? "", Corrected = corrected });
+                    samples.Add(new MistakeSampleDto { Original = original, Corrected = corrected });
                 }
             }
+            // İstenen aralıkta kırp
             samples = samples.Take(Math.Clamp(sampleCount, 3, 5)).ToList();
 
             int messageCount = messages.Count;
             int userMessageCount = userMsgs.Count;
             int agentMessageCount = messageCount - userMessageCount;
 
+            // Highlights (kullanıcı mesajlarından)
             var highlights = ExtractHighlightsInternal(
                 userMsgs.Select(x => x.Content ?? string.Empty),
                 Math.Clamp(highlightCount, 3, 5)
@@ -179,7 +187,7 @@ namespace SesliDil.Service.Services
             return new ConversationSummaryDto
             {
                 ConversationId = conv.ConversationId,
-                Summary = conv.Summary ?? "",
+                Summary = computedSummary,
                 DurationSeconds = durationSec,
                 MistakesCount = samples.Count,
                 MistakeSamples = samples,
@@ -192,6 +200,75 @@ namespace SesliDil.Service.Services
                 Highlights = highlights
             };
         }
+
+        /// <summary>
+        /// Konuşmadan kısa ve anlamlı bir summary üretir.
+        /// Öncelik: son assistant cevabı -> ilk anlamlı (system hariç) mesaj.
+        /// CorrectedText varsa onu kullanır.
+        /// </summary>
+        private static string ComputeSummaryFromConversation(List<Message> orderedMessages)
+        {
+            if (orderedMessages == null || orderedMessages.Count == 0) return "";
+
+            // inline role helper
+            bool IsAssistant(Message m)
+            {
+                var role = (GetPropString(m, "Role")
+                            ?? GetPropString(m, "MessageRole")
+                            ?? GetPropString(m, "SenderType")
+                            ?? "").Trim().ToLowerInvariant();
+                return role == "assistant" || role == "ai" || role == "agent";
+            }
+
+            bool IsSystem(Message m)
+            {
+                var role = (GetPropString(m, "Role")
+                            ?? GetPropString(m, "MessageRole")
+                            ?? GetPropString(m, "SenderType")
+                            ?? "").Trim().ToLowerInvariant();
+                return role == "system";
+            }
+
+            // 1) Son assistant cevabı
+            var lastAssistant = orderedMessages
+                .Where(IsAssistant)
+                .OrderBy(m => m.CreatedAt)
+                .LastOrDefault();
+
+            string pickText(Message m)
+            {
+                var corrected = GetPropString(m, "CorrectedText");
+                return string.IsNullOrWhiteSpace(corrected) ? (m.Content ?? "") : corrected;
+            }
+
+            string candidate = "";
+            if (lastAssistant != null)
+                candidate = pickText(lastAssistant);
+
+            // 2) Boşsa: system olmayan ilk anlamlı mesaj
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                var firstMeaningful = orderedMessages
+                    .Where(m => !IsSystem(m) &&
+                                (!string.IsNullOrWhiteSpace(m.Content) ||
+                                 !string.IsNullOrWhiteSpace(GetPropString(m, "CorrectedText"))))
+                    .OrderBy(m => m.CreatedAt)
+                    .FirstOrDefault();
+
+                if (firstMeaningful != null)
+                    candidate = pickText(firstMeaningful);
+            }
+
+            // Normalize + truncate
+            candidate = (candidate ?? "").Trim();
+            candidate = Regex.Replace(candidate, @"\s+", " ");
+            const int limit = 120;
+            if (candidate.Length > limit)
+                candidate = candidate[..(limit - 3)] + "...";
+
+            return candidate;
+        }
+
 
         private static bool IsUserMessageDynamic(Message m)
         {

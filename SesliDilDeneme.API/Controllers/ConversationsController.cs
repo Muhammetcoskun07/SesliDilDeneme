@@ -146,42 +146,6 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new ApiResponse<object>("İşlem başarılı.", minutes));
         }
 
-        [HttpGet("{id}/summary")]
-        public async Task<IActionResult> GetSummary(string id)
-        {
-            if (string.IsNullOrEmpty(id))
-                return BadRequest(new ApiResponse<object>("Invalid id", null));
-
-            var summary = await _conversationService.GetSummaryByConversationIdAsync(id);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", summary));
-        }
-        [HttpPost("{id}/end")]
-        public async Task<IActionResult> EndConversation(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
-
-            var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null) return NotFound();
-
-            await _conversationService.EndConversationAsync(id);
-            return NoContent();
-        }
-        [HttpPost("{id}/summary")]
-        public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
-        {
-            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(summary))
-                return BadRequest(new ApiResponse<object>("Geçersiz giriş", null));
-
-            try
-            {
-                await _conversationService.SaveSummaryAsync(id, summary);
-                return Ok(new ApiResponse<object>("İşlem başarılı.", null));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>("Hata oluştu", null, ex.Message));
-            }
-        }
 
         [HttpGet("summary/computed/{conversationId}")]
         public async Task<IActionResult> GetComputedSummary(
