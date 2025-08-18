@@ -17,11 +17,13 @@ namespace SesliDil.Service.Services
         private readonly SesliDilDbContext _context;
         private readonly IMapper _mapper;
         private readonly UserService _userService; 
+
         public UserDailyActivityService(SesliDilDbContext context, IMapper mapper, UserService userService)
         {
             _context = context;
             _mapper = mapper;
             _userService = userService;
+            
         }
         public async Task<UserDailyActivityDto> AddAsync(UserDailyActivityDto dto)
         {
@@ -96,15 +98,22 @@ namespace SesliDil.Service.Services
         }
         public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
         {
+            // 1. User tablosundan hedefi al
             var user = await _userService.GetByIdAsync(userId);
             if (user == null)
                 return 0;
+
             int dailyGoal = GetDailyGoalFromString(user.WeeklySpeakingGoal);
             if (dailyGoal == 0)
                 return 0;
-            var utcToday = DateTime.Today.ToUniversalTime();
-            var activity = await GetByUserAndDateAsync(userId, utcToday);
+
+            // 2. UserDailyActivity tablosundan bugünkü veriyi çek
+            var today = DateTime.UtcNow.Date;
+            var activity = await GetByUserAndDateAsync(userId, today);
+
             int minutesSpent = activity?.MinutesSpent ?? 0;
+
+            // 3. Hesapla
             double rate = (double)minutesSpent / dailyGoal * 100;
             return Math.Min(rate, 100);
         }
