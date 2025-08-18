@@ -145,6 +145,7 @@ namespace SesliDilDeneme.API.Controllers
             var minutes = conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes;
             return Ok(new ApiResponse<object>("İşlem başarılı.", minutes));
         }
+
         [HttpGet("{conversationId}/summary")]
         public async Task<IActionResult> GetConversationSummary(string conversationId)
         {
@@ -178,6 +179,7 @@ namespace SesliDilDeneme.API.Controllers
         }
      
        
+
         [HttpGet("{conversationId}/user-grammar-errors")]
         public async Task<IActionResult> GetUserGrammarErrors(string conversationId)
         {

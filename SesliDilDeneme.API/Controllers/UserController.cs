@@ -172,11 +172,21 @@ namespace SesliDilDeneme.API.Controllers
             try
             {
                 if (onboardingDto == null)
-                    return BadRequest("Geçersiz onboarding verileri");
+                    return BadRequest(new
+                    {
+                        message = "Geçersiz onboarding verileri",
+                        errors = new[] { "onboardingDto null" },
+                        data = (object)null
+                    });
 
                 var user = await _userService.GetByIdAsync(userId);
                 if (user == null)
-                    return NotFound("Kullanıcı bulunamadı");
+                    return NotFound(new
+                    {
+                        message = "Kullanıcı bulunamadı",
+                        errors = new[] { "user not found" },
+                        data = (object)null
+                    });
 
                 user.NativeLanguage = onboardingDto.NativeLanguage;
                 user.TargetLanguage = onboardingDto.TargetLanguage;
@@ -189,7 +199,6 @@ namespace SesliDilDeneme.API.Controllers
                 user.WeeklySpeakingGoal = onboardingDto.WeeklySpeakingGoal ?? "";
                 user.LastLoginAt = DateTime.UtcNow;
 
-                // Kullanıcıyı kaydet
                 await _userService.UpdateAsync(user);
 
                 var progress = await _progressService.GetSingleByUserIdAsync(userId);
@@ -207,7 +216,6 @@ namespace SesliDilDeneme.API.Controllers
                         LastConversationDate = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
                         BestWordsPerMinute = 0.0
-
                     };
                     await _progressRepository.AddAsync(progress);
                     await _progressRepository.SaveChangesAsync();
@@ -220,20 +228,40 @@ namespace SesliDilDeneme.API.Controllers
                     await _progressRepository.SaveChangesAsync();
                 }
 
-                return Ok("Onboarding bilgileri ve ilerleme kaydedildi.");
+                return Ok(new
+                {
+                    message = "Onboarding bilgileri ve ilerleme kaydedildi.",
+                    errors = (string[])null,
+                    data = new
+                    {
+                        userId,
+                        hasCompletedOnboarding = true
+                    }
+                });
             }
             catch (DbUpdateException ex)
             {
                 var innerException = ex.InnerException?.Message ?? ex.Message;
                 Console.WriteLine($"[ONBOARDING HATASI]: {ex.Message}, İç Hata: {innerException}");
-                return StatusCode(500, $"Sunucu hatası: {innerException}");
+                return StatusCode(500, new
+                {
+                    message = "Sunucu hatası",
+                    errors = new[] { innerException },
+                    data = (object)null
+                });
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[ONBOARDING HATASI]: {ex.Message}");
-                return StatusCode(500, $"Sunucu hatası: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    message = "Sunucu hatası",
+                    errors = new[] { ex.Message },
+                    data = (object)null
+                });
             }
         }
+
 
         // PATCH: api/user/{userId}/preferences
         [HttpPatch("{userId}/preferences")]
