@@ -46,8 +46,11 @@ namespace SesliDil.Service.Services
             _logger = logger;
             _agentRepository = agentRepository;
             _context = context;
+            _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", _configuration["OpenAI:ApiKey"]);
 
-           
+
         }
 
         public async Task<MessageDto> SendMessageAsync(SendMessageRequest request)
