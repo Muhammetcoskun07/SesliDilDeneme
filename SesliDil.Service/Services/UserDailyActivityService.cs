@@ -96,27 +96,6 @@ namespace SesliDil.Service.Services
                             days.Contains(x.Date.DayOfWeek))
                 .ToListAsync();
         }
-        public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
-        {
-            // 1. User tablosundan hedefi al
-            var user = await _userService.GetByIdAsync(userId);
-            if (user == null)
-                return 0;
-
-            int dailyGoal = GetDailyGoalFromString(user.WeeklySpeakingGoal);
-            if (dailyGoal == 0)
-                return 0;
-
-            // 2. UserDailyActivity tablosundan bugünkü veriyi çek
-            var today = DateTime.UtcNow.Date;
-            var activity = await GetByUserAndDateAsync(userId, today);
-
-            int minutesSpent = activity?.MinutesSpent ?? 0;
-
-            // 3. Hesapla
-            double rate = (double)minutesSpent / dailyGoal * 100;
-            return Math.Min(rate, 100);
-        }
         private readonly Dictionary<string, int> DailyGoalMapping = new Dictionary<string, int>()
         {
             { "5-10 minutes a day", 8 },
@@ -131,6 +110,47 @@ namespace SesliDil.Service.Services
             if (DailyGoalMapping.TryGetValue(goal, out int minutes))
                 return minutes;
             return 0; // Bilinmeyen hedef için 0 döner
+        }
+        public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
+        {
+            Console.WriteLine($"[Rate] Başlıyor: userId = {userId}");
+
+            // 1. User tablosundan hedefi al
+            var user = await _userService.GetByIdAsync(userId);
+            if (user == null)
+            {
+                Console.WriteLine("[Rate] Hata: Kullanıcı bulunamadı.");
+                return 0;
+            }
+
+            Console.WriteLine($"[Rate] Kullanıcı bulundu: WeeklySpeakingGoal = {user.WeeklySpeakingGoal}");
+
+            int dailyGoal = GetDailyGoalFromString(user.WeeklySpeakingGoal);
+            if (dailyGoal == 0)
+            {
+                Console.WriteLine("[Rate] Hata: DailyGoal 0 çıktı (mapping yok).");
+                return 0;
+            }
+
+            Console.WriteLine($"[Rate] DailyGoal = {dailyGoal}");
+
+            // 2. Bugünkü aktiviteyi çek
+            var today = DateTime.UtcNow.Date;
+            var activity = await GetByUserAndDateAsync(userId, today);
+
+            if (activity == null)
+                Console.WriteLine("[Rate] Bugün için aktivite bulunamadı.");
+
+            int minutesSpent = activity?.MinutesSpent ?? 0;
+            Console.WriteLine($"[Rate] MinutesSpent = {minutesSpent}");
+
+            // 3. Hesaplama
+            double rate = (double)minutesSpent / dailyGoal * 100;
+            rate = Math.Min(rate, 100);
+
+            Console.WriteLine($"[Rate] Hesaplanan rate = {rate}");
+
+            return rate;
         }
         public async Task<UserAgentStatsDto> GetUserAgentStatsAsync(string userId, string agentId)
         {
