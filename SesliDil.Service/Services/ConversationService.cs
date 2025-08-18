@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;   // <-- ToListAsync(), EF.Functions, ExecuteSqlRawAsync için
-
+using Microsoft.Extensions.Configuration;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
@@ -19,13 +22,24 @@ namespace SesliDil.Service.Services
         private readonly IRepository<Conversation> _conversationRepository;
         private readonly IMapper _mapper;
         private readonly SesliDilDbContext _dbContext;
+        private readonly HttpClient _httpClient;
+        private readonly MessageService _messageService;
+        private readonly IConfiguration _configuration;
+        private readonly IRepository<User> _userRepository;
 
-        public ConversationService(IRepository<Conversation> conversationRepository, IMapper mapper, SesliDilDbContext dbContext)
+        public ConversationService(IRepository<Conversation> conversationRepository, IMapper mapper,IConfiguration configuration, SesliDilDbContext dbContext,IRepository<User> userRepository, HttpClient httpClient,MessageService messageService)
             : base(conversationRepository, mapper)
         {
             _dbContext = dbContext;
             _conversationRepository = conversationRepository;
             _mapper = mapper;
+            _configuration = configuration;
+            _userRepository = userRepository;
+            _httpClient = httpClient;
+            _messageService = messageService;
+            _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", _configuration["OpenAI:ApiKey"]);
         }
 
         public async Task<IEnumerable<ConversationDto>> GetByUserIdAsync(string userId)
@@ -191,6 +205,89 @@ namespace SesliDil.Service.Services
                 EndedAtUtc = last,
                 Highlights = highlights
             };
+        }
+        public async Task<string> GetConversationSummaryAsync(string conversationId)
+        {
+            // 1. Tüm mesajları sırayla al
+            var allMessages = await _messageService.GetAllMessagesAsync(conversationId);
+            if (!allMessages.Any())
+                return "";
+
+            // 2. Mesajları bir string haline getir
+            var conversationText = string.Join("\n", allMessages
+                .OrderBy(m => m.CreatedAt)
+                .Select(m => $"{m.Role}: {m.Content}"));
+
+            // 3. Token dostu: uzun metinleri kır, örneğin son 2000 karakteri al
+            if (conversationText.Length > 2000)
+                conversationText = conversationText.Substring(conversationText.Length - 2000);
+
+            // 4. Kullanıcıyı Conversation tablosundan al
+            var conversation = await _dbContext.Conversations.FindAsync(conversationId);
+            if (conversation == null)
+                return "";
+
+            var user = await _userRepository.GetByIdAsync(conversation.UserId);
+            var targetLanguage = user?.TargetLanguage ?? "en";
+
+            // 5. Özetleme prompt'u
+            var summaryPrompt = $@"
+You are a helpful assistant. Summarize the following conversation briefly in {targetLanguage}, 
+keeping key points and context. Do not add new information.
+
+Conversation:
+{conversationText}
+";
+
+            var requestBody = new
+            {
+                model = "gpt-4o",
+                messages = new[]
+                {
+            new { role = "user", content = summaryPrompt }
+        },
+                temperature = 0.5
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
+            var summaryText = result?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
+
+            // 6. Özet çıktı varsa title oluştur ve Conversation tablosunu güncelle
+            if (!string.IsNullOrWhiteSpace(summaryText))
+            {
+                var titlePrompt = $@"
+You are a helpful assistant. Generate a short, concise, meaningful title (5 words max) 
+for the following conversation summary in {targetLanguage}. Do not add extra words.
+
+Summary:
+{summaryText}
+";
+
+                var titleRequest = new
+                {
+                    model = "gpt-4o",
+                    messages = new[]
+                    {
+                new { role = "user", content = titlePrompt }
+            },
+                    temperature = 0.3
+                };
+
+                var titleResponse = await _httpClient.PostAsJsonAsync("chat/completions", titleRequest);
+                titleResponse.EnsureSuccessStatusCode();
+
+                var titleResult = await titleResponse.Content.ReadFromJsonAsync<OpenAIChatResponse>();
+                var title = titleResult?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
+
+                // DB'yi güncelle
+                conversation.Title = title;
+                await _dbContext.SaveChangesAsync();
+            }
+
+            return summaryText;
         }
 
         private static bool IsUserMessageDynamic(Message m)

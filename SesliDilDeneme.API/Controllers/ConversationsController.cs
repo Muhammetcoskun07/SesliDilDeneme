@@ -145,15 +145,25 @@ namespace SesliDilDeneme.API.Controllers
             var minutes = conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes;
             return Ok(new ApiResponse<object>("İşlem başarılı.", minutes));
         }
-
-        [HttpGet("{id}/summary")]
-        public async Task<IActionResult> GetSummary(string id)
+        [HttpGet("{conversationId}/summary")]
+        public async Task<IActionResult> GetConversationSummary(string conversationId)
         {
-            if (string.IsNullOrEmpty(id))
-                return BadRequest(new ApiResponse<object>("Invalid id", null));
+            if (string.IsNullOrWhiteSpace(conversationId))
+                return BadRequest(new
+                {
+                    message = "Hata: ConversationId gerekli.",
+                    error = "InvalidParameter",
+                    body = (string)null
+                });
 
-            var summary = await _conversationService.GetSummaryByConversationIdAsync(id);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", summary));
+            var result = await _conversationService.GetConversationSummaryAsync(conversationId);
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
         }
         [HttpPost("{id}/end")]
         public async Task<IActionResult> EndConversation(string id)
@@ -166,32 +176,8 @@ namespace SesliDilDeneme.API.Controllers
             await _conversationService.EndConversationAsync(id);
             return NoContent();
         }
-        [HttpPost("{id}/summary")]
-        public async Task<IActionResult> SaveSummary(string id, [FromBody] string summary)
-        {
-            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(summary))
-                return BadRequest(new ApiResponse<object>("Geçersiz giriş", null));
-
-            try
-            {
-                await _conversationService.SaveSummaryAsync(id, summary);
-                return Ok(new ApiResponse<object>("İşlem başarılı.", null));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>("Hata oluştu", null, ex.Message));
-            }
-        }
-
-        [HttpGet("summary/computed/{conversationId}")]
-        public async Task<IActionResult> GetComputedSummary(
-            string conversationId,
-            [FromQuery] int samples = 3,
-            [FromQuery] int highlights = 3)
-        {
-            var dto = await _conversationService.BuildConversationSummaryComputedAsync(conversationId, samples, highlights);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", dto));
-        }
+     
+       
         [HttpGet("{conversationId}/user-grammar-errors")]
         public async Task<IActionResult> GetUserGrammarErrors(string conversationId)
         {

@@ -47,9 +47,7 @@ namespace SesliDil.Service.Services
             _agentRepository = agentRepository;
             _context = context;
 
-            _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", _configuration["OpenAI:ApiKey"]);
+           
         }
 
         public async Task<MessageDto> SendMessageAsync(SendMessageRequest request)
@@ -382,7 +380,13 @@ Tailor your answers to their goals and preferences."
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             return result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
         }
-
+        public async Task<List<Message>> GetAllMessagesAsync(string conversationId)
+        {
+            return await _context.Messages
+                .Where(m => m.ConversationId == conversationId)
+                .OrderBy(m => m.CreatedAt) // Eski -> yeni
+                .ToListAsync();
+        }
     }
 
 
