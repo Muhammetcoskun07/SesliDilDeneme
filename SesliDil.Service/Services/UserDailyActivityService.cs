@@ -105,13 +105,21 @@ namespace SesliDil.Service.Services
         };
         private int GetDailyGoalFromString(string goal)
         {
-            if (string.IsNullOrEmpty(goal))
+            if (string.IsNullOrWhiteSpace(goal))
                 return 0;
 
-            goal = goal.Replace('–', '-'); // en dash → normal dash
+            goal = goal.Trim(); // baş/son boşluk
+            goal = goal.Replace('–', '-')  // en dash
+                       .Replace('—', '-')  // em dash
+                       .Replace('−', '-'); // minus sign
+
+            // tüm görünmez boşluk karakterlerini normal space yap
+            goal = string.Concat(goal.Select(c => char.IsWhiteSpace(c) ? ' ' : c));
+
             if (DailyGoalMapping.TryGetValue(goal, out int minutes))
                 return minutes;
 
+            Console.WriteLine($"[Rate] Mapping yok: '{goal}'"); // log ekle
             return 0;
         }
         public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
