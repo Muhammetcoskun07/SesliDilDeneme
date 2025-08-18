@@ -146,16 +146,40 @@ namespace SesliDilDeneme.API.Controllers
             return Ok(new ApiResponse<object>("İşlem başarılı.", minutes));
         }
 
-
-        [HttpGet("summary/computed/{conversationId}")]
-        public async Task<IActionResult> GetComputedSummary(
-            string conversationId,
-            [FromQuery] int samples = 3,
-            [FromQuery] int highlights = 3)
+        [HttpGet("{conversationId}/summary")]
+        public async Task<IActionResult> GetConversationSummary(string conversationId)
         {
-            var dto = await _conversationService.BuildConversationSummaryComputedAsync(conversationId, samples, highlights);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", dto));
+            if (string.IsNullOrWhiteSpace(conversationId))
+                return BadRequest(new
+                {
+                    message = "Hata: ConversationId gerekli.",
+                    error = "InvalidParameter",
+                    body = (string)null
+                });
+
+            var result = await _conversationService.GetConversationSummaryAsync(conversationId);
+
+            return Ok(new
+            {
+                message = "İşlem başarılı.",
+                error = (string)null,
+                body = result
+            });
         }
+        [HttpPost("{id}/end")]
+        public async Task<IActionResult> EndConversation(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+
+            var conversation = await _conversationService.GetByIdAsync<string>(id);
+            if (conversation == null) return NotFound();
+
+            await _conversationService.EndConversationAsync(id);
+            return NoContent();
+        }
+     
+       
+
         [HttpGet("{conversationId}/user-grammar-errors")]
         public async Task<IActionResult> GetUserGrammarErrors(string conversationId)
         {
