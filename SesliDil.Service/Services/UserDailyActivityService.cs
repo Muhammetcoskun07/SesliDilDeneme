@@ -17,11 +17,13 @@ namespace SesliDil.Service.Services
         private readonly SesliDilDbContext _context;
         private readonly IMapper _mapper;
         private readonly UserService _userService; 
+
         public UserDailyActivityService(SesliDilDbContext context, IMapper mapper, UserService userService)
         {
             _context = context;
             _mapper = mapper;
             _userService = userService;
+            
         }
         public async Task<UserDailyActivityDto> AddAsync(UserDailyActivityDto dto)
         {
@@ -94,23 +96,6 @@ namespace SesliDil.Service.Services
                             days.Contains(x.Date.DayOfWeek))
                 .ToListAsync();
         }
-        public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
-        {
-            var user = await _userService.GetByIdAsync(userId);
-            if (user == null)
-                return 0;
-
-            int dailyGoal = GetDailyGoalFromString(user.WeeklySpeakingGoal); 
-            if (dailyGoal == 0)
-                return 0;
-
-            var utcToday = DateTime.Today.ToUniversalTime();
-            var activity = await GetByUserAndDateAsync(userId, utcToday);
-            int minutesSpent = activity?.MinutesSpent ?? 0;
-
-            double rate = (double)minutesSpent / dailyGoal * 100;
-            return Math.Min(rate, 100);
-        }
         private readonly Dictionary<string, int> DailyGoalMapping = new Dictionary<string, int>()
         {
             { "5-10 minutes a day", 8 },
@@ -120,13 +105,63 @@ namespace SesliDil.Service.Services
         };
         private int GetDailyGoalFromString(string goal)
         {
-            if (string.IsNullOrEmpty(goal))
+            if (string.IsNullOrWhiteSpace(goal))
                 return 0;
+
+            goal = goal.Trim(); // baş/son boşluk
+            goal = goal.Replace('–', '-')  // en dash
+                       .Replace('—', '-')  // em dash
+                       .Replace('−', '-'); // minus sign
+
+            // tüm görünmez boşluk karakterlerini normal space yap
+            goal = string.Concat(goal.Select(c => char.IsWhiteSpace(c) ? ' ' : c));
 
             if (DailyGoalMapping.TryGetValue(goal, out int minutes))
                 return minutes;
 
-            return 0; // Bilinmeyen hedef için 0 döner
+            Console.WriteLine($"[Rate] Mapping yok: '{goal}'"); // log ekle
+            return 0;
+        }
+        public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
+        {
+            Console.WriteLine($"[Rate] Başlıyor: userId = {userId}");
+
+            // 1. User tablosundan hedefi al
+            var user = await _userService.GetByIdAsync(userId);
+            if (user == null)
+            {
+                Console.WriteLine("[Rate] Hata: Kullanıcı bulunamadı.");
+                return 0;
+            }
+
+            Console.WriteLine($"[Rate] Kullanıcı bulundu: WeeklySpeakingGoal = {user.WeeklySpeakingGoal}");
+
+            int dailyGoal = GetDailyGoalFromString(user.WeeklySpeakingGoal);
+            if (dailyGoal == 0)
+            {
+                Console.WriteLine("[Rate] Hata: DailyGoal 0 çıktı (mapping yok).");
+                return 0;
+            }
+
+            Console.WriteLine($"[Rate] DailyGoal = {dailyGoal}");
+
+            // 2. Bugünkü aktiviteyi çek
+            var today = DateTime.UtcNow.Date;
+            var activity = await GetByUserAndDateAsync(userId, today);
+
+            if (activity == null)
+                Console.WriteLine("[Rate] Bugün için aktivite bulunamadı.");
+
+            int minutesSpent = activity?.MinutesSpent ?? 0;
+            Console.WriteLine($"[Rate] MinutesSpent = {minutesSpent}");
+
+            // 3. Hesaplama
+            double rate = (double)minutesSpent / dailyGoal * 100;
+            rate = Math.Min(rate, 100);
+
+            Console.WriteLine($"[Rate] Hesaplanan rate = {rate}");
+
+            return rate;
         }
         public async Task<UserAgentStatsDto> GetUserAgentStatsAsync(string userId, string agentId)
         {
@@ -163,30 +198,30 @@ namespace SesliDil.Service.Services
             return query;
         }
 
-    //    public async Task<List<UserDailyActivity>> GetActivitiesByDatesOrDaysAsync(
-    //string userId,
-    //List<DateTime>? dates = null,
-    //List<DayOfWeek>? days = null)
-    //    {
-    //        var query = _context.UserDailyActivities.AsQueryable();
+        public async Task<List<UserDailyActivity>> GetActivitiesByDatesOrDaysAsync(
+    string userId,
+    List<DateTime>? dates = null,
+    List<DayOfWeek>? days = null)
+        {
+            var query = _context.UserDailyActivities.AsQueryable();
 
-    //        query = query.Where(x => x.UserId == userId);
+            query = query.Where(x => x.UserId == userId);
 
-    //        if (dates != null && dates.Any())
-    //        {
-    //            var dateSet = dates.Select(d => d.Date).ToHashSet();
-    //            query = query.Where(x => dateSet.Contains(x.Date.Date));
-    //        }
+            if (dates != null && dates.Any())
+            {
+                var dateSet = dates.Select(d => d.Date).ToHashSet();
+                query = query.Where(x => dateSet.Contains(x.Date.Date));
+            }
 
-    //        if (days != null && days.Any())
-    //        {
-    //            query = query.Where(x => days.Contains(x.Date.DayOfWeek));
-    //        }
+            if (days != null && days.Any())
+            {
+                query = query.Where(x => days.Contains(x.Date.DayOfWeek));
+            }
 
-    //        return await query
-    //            .OrderByDescending(x => x.Date)
-    //            .ToListAsync();
-    //    }
+            return await query
+                .OrderByDescending(x => x.Date)
+                .ToListAsync();
+        }
 
     }
 }
