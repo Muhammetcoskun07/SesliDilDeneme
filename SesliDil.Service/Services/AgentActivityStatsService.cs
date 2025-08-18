@@ -32,7 +32,8 @@ namespace SesliDil.Service.Services
                 TotalMinutes = activities.Sum(a => a.Duration.TotalMinutes),
                 TotalMessages = activities.Sum(a => a.MessageCount),
                 TotalWords = activities.Sum(a => a.WordCount),
-                AverageWPM = activities.Average(a => a.WordsPerMinute)
+                AverageWPM = activities.Average(a => a.WordsPerMinute),
+                ConversationCount = activities.Select(a => a.ConversationId).Distinct().Count()
             };
         }
 
