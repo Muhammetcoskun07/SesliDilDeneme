@@ -295,18 +295,18 @@ namespace SesliDilDeneme.API.Hubs
                 _logger.LogInformation($"Updated agentActivity: MessageCount={agentActivity.MessageCount}, WordCount={agentActivity.WordCount}");
 
                 // 1️⃣ Add user message to DB
-                var userMessage = new Message
-                {
-                    MessageId = Guid.NewGuid().ToString(),
-                    ConversationId = conversationId,
-                    Role = "user",
-                    SpeakerType = "user",
-                    Content = content,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _dbContext.Messages.AddAsync(userMessage);
-                await _dbContext.SaveChangesAsync();
-                _logger.LogInformation($"Saved user message: MessageId={userMessage.MessageId}");
+                //var userMessage = new Message
+                //{
+                //    MessageId = Guid.NewGuid().ToString(),
+                //    ConversationId = conversationId,
+                //    Role = "user",
+                //    SpeakerType = "user",
+                //    Content = content,
+                //    CreatedAt = DateTime.UtcNow
+                //};
+                //await _dbContext.Messages.AddAsync(userMessage);
+                //await _dbContext.SaveChangesAsync();
+                //_logger.LogInformation($"Saved user message: MessageId={userMessage.MessageId}");
 
                 // 2️⃣ Get AI response
                 var request = new SendMessageRequest
@@ -328,21 +328,21 @@ namespace SesliDilDeneme.API.Hubs
                 _logger.LogInformation($"Received AI response: Content={aiMessage.Content}");
 
                 // 3️⃣ Add AI message to DB
-                var aiDbMessage = new Message
-                {
-                    MessageId = Guid.NewGuid().ToString(),
-                    ConversationId = conversationId,
-                    Role = "ai",
-                    SpeakerType = "ai",
-                    Content = aiMessage.Content,
-                    TranslatedContent = aiMessage.TranslatedContent,
-                    AudioUrl = aiMessage.AudioUrl,
-                    GrammarErrors = aiMessage.GrammarErrors,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _dbContext.Messages.AddAsync(aiDbMessage);
-                await _dbContext.SaveChangesAsync();
-                _logger.LogInformation($"Saved AI message: MessageId={aiDbMessage.MessageId}");
+                //var aiDbMessage = new Message
+                //{
+                //    MessageId = Guid.NewGuid().ToString(),
+                //    ConversationId = conversationId,
+                //    Role = "ai",
+                //    SpeakerType = "ai",
+                //    Content = aiMessage.Content,
+                //    TranslatedContent = aiMessage.TranslatedContent,
+                //    AudioUrl = aiMessage.AudioUrl,
+                //    GrammarErrors = aiMessage.GrammarErrors,
+                //    CreatedAt = DateTime.UtcNow
+                //};
+                //await _dbContext.Messages.AddAsync(aiDbMessage);
+                //await _dbContext.SaveChangesAsync();
+                //_logger.LogInformation($"Saved AI message: MessageId={aiDbMessage.MessageId}");
 
                 // 4️⃣ Send to clients
                 await Clients.Group(conversationId).SendAsync("ReceiveMessage", aiMessage);
