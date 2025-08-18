@@ -107,9 +107,12 @@ namespace SesliDil.Service.Services
         {
             if (string.IsNullOrEmpty(goal))
                 return 0;
+
+            goal = goal.Replace('–', '-'); // en dash → normal dash
             if (DailyGoalMapping.TryGetValue(goal, out int minutes))
                 return minutes;
-            return 0; // Bilinmeyen hedef için 0 döner
+
+            return 0;
         }
         public async Task<double> GetTodaySpeakingCompletionRateAsync(string userId)
         {
