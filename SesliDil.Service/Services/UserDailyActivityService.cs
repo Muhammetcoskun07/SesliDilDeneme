@@ -65,13 +65,13 @@ namespace SesliDil.Service.Services
         public async Task<UserDailyActivityDto> UpdateAsync(UserDailyActivityDto dto)
         {
             var entity = await _context.UserDailyActivities.FindAsync(dto.Id);
-
             if (entity == null)
                 throw new Exception("UserDailyActivity not found");
 
+            // Güncellemeyi ekle
+            entity.MinutesSpent = dto.MinutesSpent;
 
             await _context.SaveChangesAsync();
-
             return _mapper.Map<UserDailyActivityDto>(entity);
         }
         public async Task<IEnumerable<UserDailyActivityDto>> GetByUserAndDatesAsync(string userId, List<DateTime> dates)
@@ -126,7 +126,7 @@ namespace SesliDil.Service.Services
         {
             Console.WriteLine($"[Rate] Başlıyor: userId = {userId}");
 
-            // 1. User tablosundan hedefi al
+           
             var user = await _userService.GetByIdAsync(userId);
             if (user == null)
             {
@@ -145,7 +145,7 @@ namespace SesliDil.Service.Services
 
             Console.WriteLine($"[Rate] DailyGoal = {dailyGoal}");
 
-            // 2. Bugünkü aktiviteyi çek
+          
             var today = DateTime.UtcNow.Date;
             var activity = await GetByUserAndDateAsync(userId, today);
 
@@ -155,7 +155,7 @@ namespace SesliDil.Service.Services
             int minutesSpent = activity?.MinutesSpent ?? 0;
             Console.WriteLine($"[Rate] MinutesSpent = {minutesSpent}");
 
-            // 3. Hesaplama
+           
             double rate = (double)minutesSpent / dailyGoal * 100;
             rate = Math.Min(rate, 100);
 
