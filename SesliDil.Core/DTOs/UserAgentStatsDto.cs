@@ -13,5 +13,6 @@ namespace SesliDil.Core.DTOs
         public int TotalMessages { get; set; }
         public int TotalWords { get; set; }
         public double AverageWPM { get; set; }
+        public int ConversationCount { get; set; }
     }
 }
