@@ -81,8 +81,9 @@ The learner's message: ""{request.Content}""
 
 Tasks:
 1. Identify **only real grammar mistakes** in the learner's original message in {user.TargetLanguage}. 
-   - Ignore missing punctuation (periods, commas, question marks).
+   -Focus ONLY on grammar mistakes. Do NOT consider missing or extra punctuation marks (periods, commas, question marks) as errors. Ignore all punctuation issues.
    - Focus only on grammar issues (verb conjugation, word order, articles, plural/singular, agreement, etc.).
+   - Ignore all punctuation issues completely. Do NOT mark missing or extra punctuation as grammar errors.
 2. Provide the corrected version of the learner's message in {user.TargetLanguage} without changing its meaning.
 3. Respond to the corrected message in {user.TargetLanguage}.
 4. Translate your response into the learner's native language ({user.NativeLanguage}).
@@ -94,7 +95,7 @@ Return strictly JSON in this exact format:
   ""translatedContent"": ""..."",
   ""grammarErrors"": [""..."", ""...""]
 }}
-Always fill 'grammarErrors' with every issue found. If there are no mistakes, return an empty array.
+Always fill 'grammarErrors' with every issue found. If there are no mistakes, return an empty array.Ignore all punctuation issues completely.
 ";
 
             // system prompt
