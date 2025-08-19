@@ -183,11 +183,18 @@ namespace SesliDilDeneme.API.Controllers
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null) return NotFound();
 
-            await _conversationService.EndConversationAsync(id);
-            return NoContent();
+            var summaryResult = await _conversationService.EndConversationAsync(id);
+
+            // Summary ve Title dön
+            return Ok(new
+            {
+                conversationId = id,
+                summary = summaryResult.Summary,
+                title = summaryResult.Title
+            });
         }
-     
-       
+
+
 
         [HttpGet("{conversationId}/user-grammar-errors")]
         public async Task<IActionResult> GetUserGrammarErrors(string conversationId)
