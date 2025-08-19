@@ -110,7 +110,7 @@ namespace SesliDil.Service.Services
     ");
            return deleted;
        }
-        public async Task EndConversationAsync(string conversationId, bool forceEnd = true)
+        public async Task<ConversationSummaryResult> EndConversationAsync(string conversationId, bool forceEnd = true)
         {
             var conversation = await GetByIdAsync<string>(conversationId);
             if (conversation == null)
@@ -123,6 +123,11 @@ namespace SesliDil.Service.Services
             }
 
             await UpdateAsync(conversation);
+
+            // Özet ve title alma
+            var summaryResult = await GetConversationSummaryAsync(conversationId);
+
+            return summaryResult;
         }
 
         public async Task<ConversationSummaryDto> BuildConversationSummaryComputedAsync(
