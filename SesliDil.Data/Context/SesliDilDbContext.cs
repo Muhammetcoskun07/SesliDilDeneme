@@ -23,7 +23,8 @@ namespace SesliDil.Data.Context
         public DbSet<AIAgent> AIAgents { get; set; }
         public DbSet<Session> Sessions { get; set; } 
         public DbSet<ConversationAgentActivity> ConversationAgentActivities { get; set; }
-        public DbSet<UserDailyActivity> UserDailyActivities { get; set; } 
+        public DbSet<UserDailyActivity> UserDailyActivities { get; set; }
+        public DbSet<Prompt> Prompts { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -150,6 +151,14 @@ namespace SesliDil.Data.Context
 
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
                      
+            });
+            modelBuilder.Entity<Prompt>(entity =>
+            {
+                entity.ToTable("Prompt");
+                entity.HasKey(e => e.PromptId);
+                entity.Property(e => e.PromptId).ValueGeneratedOnAdd();
+                entity.Property(e => e.AgentId).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Content).IsRequired().HasMaxLength(4000);
             });
         }
     }
