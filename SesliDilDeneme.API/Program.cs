@@ -13,6 +13,7 @@ using FluentValidation.AspNetCore;
 using SesliDilDeneme.API.Validators;
 using SesliDilDeneme.API.Hubs;
 using AutoMapper;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -100,8 +101,14 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<SesliDilDbContext>();
     db.Database.Migrate(); 
 }
-app.UseHttpsRedirection();
-app.UseStaticFiles();
+//app.UseHttpsRedirection();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+    ),
+    RequestPath = ""  // /audio/... URL’leri direkt çalışacak
+});
 app.UseRouting();
 app.UseCors("AllowAll");
 
@@ -113,5 +120,6 @@ app.UseEndpoints(endpoints =>
     endpoints.MapControllers();
     endpoints.MapHub<ChatHub>("/chatHub");
 });
+
 
 app.Run();
