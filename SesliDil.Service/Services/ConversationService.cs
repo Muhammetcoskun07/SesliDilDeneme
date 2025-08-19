@@ -214,26 +214,26 @@ namespace SesliDil.Service.Services
                 Highlights = highlights
             };
         }
-        public async Task<string> GetConversationSummaryAsync(string conversationId)
+        public async Task<ConversationSummaryResult> GetConversationSummaryAsync(string conversationId)
         {
             // 1. Tüm mesajları sırayla al
             var allMessages = await _messageService.GetAllMessagesAsync(conversationId);
-            if (!allMessages.Any())
-                return "";
+            if (allMessages == null || !allMessages.Any())
+                return new ConversationSummaryResult();
 
             // 2. Mesajları bir string haline getir
             var conversationText = string.Join("\n", allMessages
                 .OrderBy(m => m.CreatedAt)
                 .Select(m => $"{m.Role}: {m.Content}"));
 
-            // 3. Token dostu: uzun metinleri kır, örneğin son 2000 karakteri al
+            // 3. Token dostu: uzun metinleri kır, örn. son 2000 karakter
             if (conversationText.Length > 2000)
                 conversationText = conversationText.Substring(conversationText.Length - 2000);
 
             // 4. Kullanıcıyı Conversation tablosundan al
             var conversation = await _dbContext.Conversations.FindAsync(conversationId);
             if (conversation == null)
-                return "";
+                return new ConversationSummaryResult();
 
             var user = await _userRepository.GetByIdAsync(conversation.UserId);
             var targetLanguage = user?.TargetLanguage ?? "en";
@@ -265,6 +265,9 @@ Conversation:
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             var summaryText = result?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
 
+            // Title değişkenini if dışına al
+            string title = "";
+
             // 6. Özet çıktı varsa title oluştur ve Conversation tablosunu güncelle
             if (!string.IsNullOrWhiteSpace(summaryText))
             {
@@ -290,16 +293,19 @@ Summary:
                 titleResponse.EnsureSuccessStatusCode();
 
                 var titleResult = await titleResponse.Content.ReadFromJsonAsync<OpenAIChatResponse>();
-                var title = titleResult?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
+                title = titleResult?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
 
                 // DB'yi güncelle
                 conversation.Title = title;
                 await _dbContext.SaveChangesAsync();
             }
 
-            return summaryText;
+            return new ConversationSummaryResult
+            {
+                Summary = summaryText,
+                Title = title
+            };
         }
-
         /// <summary>
         /// Konuşmadan kısa ve anlamlı bir summary üretir.
         /// Öncelik: son assistant cevabı -> ilk anlamlı (system hariç) mesaj.
