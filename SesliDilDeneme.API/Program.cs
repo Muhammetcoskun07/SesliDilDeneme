@@ -36,6 +36,7 @@ builder.Services.AddHostedService<CleanupService>();
 builder.Services.AddSingleton<AgentActivityService>();
 builder.Services.AddScoped<IUserDailyActivityService, UserDailyActivityService>();
 builder.Services.AddScoped<IAgentActivityStatsService, AgentActivityStatsService>();
+builder.Services.AddScoped<PromptService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));

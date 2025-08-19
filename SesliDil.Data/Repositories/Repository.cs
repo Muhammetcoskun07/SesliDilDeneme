@@ -19,10 +19,10 @@ namespace SesliDil.Data.Repositories
             _dbSet = context.Set<T>();
         }
 
-       public async Task<T> GetByIdAsync<TId>(TId id)
-       {
-    return await _dbSet.FindAsync(id); // <-- EF'nin native methodu, daha güvenli
-         }
+        public async Task<T> GetByIdAsync<TId>(TId id)
+        {
+            return await _dbSet.FindAsync(id); // <-- EF'nin native methodu, daha güvenli
+        }
 
 
         public async Task<T> FindAsync(object id)
@@ -49,7 +49,7 @@ namespace SesliDil.Data.Repositories
             _dbSet.Update(entity);
             await _context.SaveChangesAsync();
         }
-      
+
 
         public void Delete(T entity)
         {
@@ -65,7 +65,7 @@ namespace SesliDil.Data.Repositories
         {
             return _dbSet.AsQueryable();
         }
-        
+
         public Task UpdateAsync(Conversation conversation)
         {
             throw new NotImplementedException();
@@ -82,6 +82,12 @@ namespace SesliDil.Data.Repositories
             return await _dbSet
                 .OfType<Message>() // Ensure T is Message, but since it's generic, use when T=Message
                 .Where(m => m.ConversationId == conversationId)
+                .ToListAsync();
+        }
+        public async Task<IEnumerable<T>> GetByAgentAsync(string agentId)
+        {
+            return await _dbSet
+                .Where(e => EF.Property<string>(e, "AgentId") == agentId)
                 .ToListAsync();
         }
     }
