@@ -296,6 +296,7 @@ Summary:
                 title = titleResult?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
 
                 // DB'yi güncelle
+                conversation.Summary = summaryText;
                 conversation.Title = title;
                 await _dbContext.SaveChangesAsync();
             }
