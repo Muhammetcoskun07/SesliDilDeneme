@@ -498,11 +498,26 @@ Summary:
         }
         public async Task<List<Conversation>> GetConversationsByUserAndAgentAsync(string userId, string agentId)
         {
-            return await _dbContext.Conversations
+            var conversations = await _dbContext.Conversations
                 .Where(c => c.UserId == userId && c.AgentId == agentId)
-                .OrderByDescending(c => c.CreatedAt) 
+                .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
-        }
 
+            foreach (var conv in conversations)
+            {
+                if (string.IsNullOrWhiteSpace(conv.Summary) || string.IsNullOrWhiteSpace(conv.Title))
+                {
+                    var summaryResult = await GetConversationSummaryAsync(conv.ConversationId);
+                    if (!string.IsNullOrWhiteSpace(summaryResult.Summary))
+                    {
+                        conv.Summary = summaryResult.Summary;
+                        conv.Title = summaryResult.Title;
+                        await _dbContext.SaveChangesAsync();
+                    }
+                }
+            }
+
+            return conversations;
+        }
     }
 }
