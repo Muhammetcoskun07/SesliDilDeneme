@@ -166,6 +166,15 @@ namespace SesliDilDeneme.API.Controllers
                 body = result
             });
         }
+        [HttpGet("summary/computed/{conversationId}")]
+        public async Task<IActionResult> GetComputedSummary(
+           string conversationId,
+           [FromQuery] int samples = 3,
+           [FromQuery] int highlights = 3)
+        {
+            var dto = await _conversationService.BuildConversationSummaryComputedAsync(conversationId, samples, highlights);
+            return Ok(new ApiResponse<object>("İşlem başarılı.", dto));
+        }
         [HttpPost("{id}/end")]
         public async Task<IActionResult> EndConversation(string id)
         {

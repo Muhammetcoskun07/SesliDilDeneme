@@ -203,9 +203,9 @@ Tailor your answers to their goals and preferences."
             return language.ToLower() switch
             {
                 "turkish" => "alloy",
-                "english" => "nova",
-                "spanish" => "shimmer",
-                // Diğer diller için eklemeler yapabilirsin
+                "english" => "alloy",
+                "spanish" => "alloy",
+                
                 _ => "alloy" // Varsayılan ses
             };
         }

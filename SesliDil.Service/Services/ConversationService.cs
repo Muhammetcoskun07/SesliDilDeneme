@@ -241,7 +241,7 @@ namespace SesliDil.Service.Services
             // 5. Özetleme prompt'u
             var summaryPrompt = $@"
 You are a helpful assistant. Summarize the following conversation **as a short study lesson** in a friendly way, 
-Keep it **concise, maximum 2 sentences**, focusing on what was discussed and learned. 
+Keep it **concise, maximum 15 words**, focusing on what was discussed and learned. 
 Do not mention 'user' or 'assistant' labels. 
 Write in {targetLanguage}.
 
