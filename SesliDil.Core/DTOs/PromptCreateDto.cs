@@ -4,14 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SesliDil.Core.Entities
+namespace SesliDil.Core.DTOs
 {
-    public class Prompt
+    public class PromptCreateDto
     {
-        public string PromptId { get; set; } 
-        public string AgentId { get; set; }   
+        public string AgentId { get; set; }
         public string Title { get; set; }
         public string Content { get; set; }
-        public AIAgent Agent { get; set; }
     }
 }

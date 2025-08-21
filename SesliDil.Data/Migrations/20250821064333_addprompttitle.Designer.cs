@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SesliDil.Data.Context;
@@ -13,9 +14,11 @@ using SesliDil.Data.Context;
 namespace SesliDil.Data.Migrations
 {
     [DbContext(typeof(SesliDilDbContext))]
-    partial class SesliDilDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250821064333_addprompttitle")]
+    partial class addprompttitle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -266,8 +269,6 @@ namespace SesliDil.Data.Migrations
 
                     b.HasKey("PromptId");
 
-                    b.HasIndex("AgentId");
-
                     b.ToTable("Prompt", (string)null);
                 });
 
@@ -477,17 +478,6 @@ namespace SesliDil.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("SesliDil.Core.Entities.Prompt", b =>
-                {
-                    b.HasOne("SesliDil.Core.Entities.AIAgent", "Agent")
-                        .WithMany()
-                        .HasForeignKey("AgentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Agent");
                 });
 
             modelBuilder.Entity("SesliDil.Core.Entities.Session", b =>
