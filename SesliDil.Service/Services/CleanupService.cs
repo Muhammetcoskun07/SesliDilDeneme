@@ -15,7 +15,7 @@ namespace SesliDil.Service.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly TimeSpan _interval;
 
-        // interval: çalıştırma aralığını ayarlamak için (örn. 24 saat)
+        // interval: çalıştırma aralığını ayarlamak için 
         public CleanupService(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;

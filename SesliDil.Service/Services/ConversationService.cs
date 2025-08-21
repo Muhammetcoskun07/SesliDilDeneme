@@ -270,7 +270,7 @@ Conversation:
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             var summaryText = result?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
 
-            // Title değişkenini if dışına al
+            
             string title = "";
 
             // 6. Özet çıktı varsa title oluştur ve Conversation tablosunu güncelle
