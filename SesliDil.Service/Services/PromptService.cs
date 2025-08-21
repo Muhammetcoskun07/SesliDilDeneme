@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SesliDil.Core.Entities;
 using SesliDil.Core.Interfaces;
 using SesliDil.Service.Interfaces;
@@ -20,12 +21,15 @@ namespace SesliDil.Service.Services
 
         public async Task<IEnumerable<Prompt>> GetAllAsync()
         {
-            return await _promptRepository.GetAllAsync();
+            return await _promptRepository.Query()
+                .Include(p => p.Agent)   // Agent bilgisi eklendi
+                .ToListAsync();
         }
-
         public async Task<Prompt> GetByIdAsync<TId>(TId id)
         {
-            return await _promptRepository.GetByIdAsync(id);
+            return await _promptRepository.Query()
+                .Include(p => p.Agent)
+                .FirstOrDefaultAsync(p => p.PromptId == id.ToString());
         }
 
         public async Task CreateAsync(Prompt entity)
@@ -46,11 +50,13 @@ namespace SesliDil.Service.Services
             await _promptRepository.SaveChangesAsync();
         }
 
-        // Opsiyonel: AgentId'ye göre promptları getir
         public async Task<IEnumerable<Prompt>> GetByAgentAsync(string agentId)
         {
-            return await _promptRepository.GetByAgentAsync(agentId);
+            return await _promptRepository.Query()
+                .Include(p => p.Agent)
+                .Where(p => p.AgentId == agentId)
+                .ToListAsync();
         }
-    
-}
+
+    }
 }
