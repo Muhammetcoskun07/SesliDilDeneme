@@ -101,13 +101,15 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<SesliDilDbContext>();
     db.Database.Migrate(); 
 }
-//app.UseHttpsRedirection();
+var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+if (!Directory.Exists(wwwrootPath))
+{
+    Directory.CreateDirectory(wwwrootPath);
+}
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
-    ),
-    RequestPath = ""  // /audio/... URL’leri direkt çalışacak
+    FileProvider = new PhysicalFileProvider(wwwrootPath),
+    RequestPath = ""
 });
 app.UseRouting();
 app.UseCors("AllowAll");
