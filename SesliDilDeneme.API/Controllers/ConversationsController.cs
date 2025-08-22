@@ -2,8 +2,7 @@
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
-using SesliDil.Core.Responses;
-using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -31,42 +30,42 @@ namespace SesliDilDeneme.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var conversations = await _conversationService.GetAllAsync(); // muhtemelen IEnumerable<Conversation>
-            return Ok(new ApiResponse<object>("İşlem başarılı.", conversations));
+            var conversations = await _conversationService.GetAllAsync();
+            return Ok(conversations);
         }
 
         [HttpGet("id/{id}")]
         public async Task<IActionResult> GetById(string id)
         {
-            if (string.IsNullOrEmpty(id))
-                return BadRequest(new ApiResponse<object>("Invalid id", null));
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null)
-                return NotFound(new ApiResponse<object>("Not found", null));
+                throw new KeyNotFoundException();
 
-            return Ok(new ApiResponse<object>("İşlem başarılı.", conversation));
+            return Ok(conversation);
         }
 
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetByUserId(string userId)
         {
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest(new ApiResponse<object>("Invalid userId", null));
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new ArgumentException("Geçersiz userId.");
 
             var conversations = await _conversationService.GetByUserIdAsync(userId);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", conversations));
+            return Ok(conversations);
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateConversationDto dto)
         {
-            if (dto == null || string.IsNullOrEmpty(dto.UserId))
-                return BadRequest(new ApiResponse<object>("Invalid conversation data", null));
+            if (dto == null || string.IsNullOrWhiteSpace(dto.UserId))
+                throw new ArgumentException("Geçersiz konuşma verisi.");
 
             var user = await _userService.GetByIdAsync(dto.UserId);
             if (user == null)
-                return BadRequest(new ApiResponse<object>("User not found", null));
+                throw new KeyNotFoundException();
 
             var conversation = new Conversation
             {
@@ -90,23 +89,22 @@ namespace SesliDilDeneme.API.Controllers
                 DurationMinutes = conversation.DurationMinutes
             };
 
-            return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId },
-                new ApiResponse<object>("İşlem başarılı.", responseDto));
+            return CreatedAtAction(nameof(GetById), new { id = conversation.ConversationId }, responseDto);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] ConversationDto conversationDto)
         {
-            if (string.IsNullOrEmpty(id) || conversationDto == null)
-                return BadRequest(new ApiResponse<object>("Invalid input", null));
+            if (string.IsNullOrWhiteSpace(id) || conversationDto == null)
+                throw new ArgumentException("Geçersiz giriş.");
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null)
-                return NotFound(new ApiResponse<object>("Not found", null));
-     
+                throw new KeyNotFoundException();
+
             var user = await _userService.GetByIdAsync(conversationDto.UserId);
             if (user == null)
-                return BadRequest(new ApiResponse<object>("User not found", null));
+                throw new KeyNotFoundException();
 
             conversation.UserId = conversationDto.UserId;
             conversation.AgentId = conversationDto.AgentId;
@@ -115,77 +113,72 @@ namespace SesliDilDeneme.API.Controllers
             conversation.DurationMinutes = conversationDto.DurationMinutes;
 
             await _conversationService.UpdateAsync(conversation);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", null));
+            return Ok(conversation);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            if (string.IsNullOrEmpty(id))
-                return BadRequest(new ApiResponse<object>("Invalid id", null));
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null)
-                return NotFound(new ApiResponse<object>("Not found", null));
+                throw new KeyNotFoundException();
 
             await _conversationService.DeleteAsync(conversation);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", null));
+            return Ok(new { Deleted = true, Id = id });
         }
 
         [HttpGet("{id}/duration")]
         public async Task<IActionResult> GetDuration(string id)
         {
-            if (string.IsNullOrEmpty(id))
-                return BadRequest(new ApiResponse<object>("Invalid id", null));
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
             if (conversation == null)
-                return NotFound(new ApiResponse<object>("Not found", null));
+                throw new KeyNotFoundException();
 
             var minutes = conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes;
-            return Ok(new ApiResponse<object>("İşlem başarılı.", minutes));
+            return Ok(minutes);
         }
 
         [HttpGet("{conversationId}/summary")]
         public async Task<IActionResult> GetConversationSummary(string conversationId)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
-                return BadRequest(new
-                {
-                    message = "Hata: ConversationId gerekli.",
-                    error = "InvalidParameter",
-                    body = (string)null
-                });
+                throw new ArgumentException("ConversationId gerekli.");
 
             var result = await _conversationService.GetConversationSummaryAsync(conversationId);
-
-            return Ok(new
-            {
-                message = "İşlem başarılı.",
-                error = (string)null,
-                body = result
-            });
+            return Ok(result);
         }
+
         [HttpGet("summary/computed/{conversationId}")]
         public async Task<IActionResult> GetComputedSummary(
-           string conversationId,
-           [FromQuery] int samples = 3,
-           [FromQuery] int highlights = 3)
+            string conversationId,
+            [FromQuery] int samples = 3,
+            [FromQuery] int highlights = 3)
         {
+            if (string.IsNullOrWhiteSpace(conversationId))
+                throw new ArgumentException("ConversationId gerekli.");
+
             var dto = await _conversationService.BuildConversationSummaryComputedAsync(conversationId, samples, highlights);
-            return Ok(new ApiResponse<object>("İşlem başarılı.", dto));
+            return Ok(dto);
         }
+
         [HttpPost("{id}/end")]
         public async Task<IActionResult> EndConversation(string id)
         {
-            if (string.IsNullOrEmpty(id)) return BadRequest("Invalid id");
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
 
             var conversation = await _conversationService.GetByIdAsync<string>(id);
-            if (conversation == null) return NotFound();
+            if (conversation == null)
+                throw new KeyNotFoundException();
 
             var summaryResult = await _conversationService.EndConversationAsync(id);
 
-            // Summary ve Title dön
             return Ok(new
             {
                 conversationId = id,
@@ -194,31 +187,31 @@ namespace SesliDilDeneme.API.Controllers
             });
         }
 
-
-
         [HttpGet("{conversationId}/user-grammar-errors")]
         public async Task<IActionResult> GetUserGrammarErrors(string conversationId)
         {
+            if (string.IsNullOrWhiteSpace(conversationId))
+                throw new ArgumentException("ConversationId gerekli.");
+
             var messages = await _conversationService.GetUserMessagesWithGrammarErrorsAsync(conversationId);
 
             var result = messages.Select(m => new
             {
                 m.MessageId,
                 m.Content,
-                GrammarErrors = m.GrammarErrors,
-                CorrectedText = m.CorrectedText
+                m.GrammarErrors,
+                m.CorrectedText
             });
 
-            return Ok(new
-            {
-                message = "İşlem başarılı.",
-                error = (string)null,
-                body = result
-            });
+            return Ok(result);
         }
+
         [HttpGet("search")]
         public async Task<IActionResult> SearchConversations([FromQuery] string query)
         {
+            if (string.IsNullOrWhiteSpace(query))
+                throw new ArgumentException("query gerekli.");
+
             var conversations = await _conversationService.SearchConversationsAsync(query);
 
             var result = conversations.Select(c => new
@@ -231,16 +224,15 @@ namespace SesliDilDeneme.API.Controllers
                 c.CreatedAt
             });
 
-            return Ok(new
-            {
-                message = "İşlem başarılı.",
-                error = (string)null,
-                body = result
-            });
+            return Ok(result);
         }
+
         [HttpGet("user/{userId}/agent/{agentId}/grammar-errors")]
         public async Task<IActionResult> GetUserGrammarErrorsByAgent(string userId, string agentId)
         {
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(agentId))
+                throw new ArgumentException("userId/agentId gerekli.");
+
             var messages = await _conversationService.GetUserMessagesWithGrammarErrorsByAgentAsync(userId, agentId);
 
             var result = messages.Select(m => new
@@ -248,20 +240,19 @@ namespace SesliDilDeneme.API.Controllers
                 m.MessageId,
                 m.ConversationId,
                 m.Content,
-                GrammarErrors = m.GrammarErrors,
-                CorrectedText=m.CorrectedText
+                m.GrammarErrors,
+                m.CorrectedText
             });
 
-            return Ok(new
-            {
-                message = "İşlem başarılı.",
-                error = (string)null,
-                body = result
-            });
+            return Ok(result);
         }
+
         [HttpGet("user/{userId}/agent/{agentId}/conversations")]
         public async Task<IActionResult> GetConversationsByUserAndAgent(string userId, string agentId)
         {
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(agentId))
+                throw new ArgumentException("userId/agentId gerekli.");
+
             var conversations = await _conversationService.GetConversationsByUserAndAgentAsync(userId, agentId);
 
             var result = conversations.Select(c => new
@@ -275,12 +266,7 @@ namespace SesliDilDeneme.API.Controllers
                 c.Summary
             });
 
-            return Ok(new
-            {
-                message = "İşlem başarılı.",
-                error = (string)null,
-                body = result
-            });
+            return Ok(result);
         }
     }
 }

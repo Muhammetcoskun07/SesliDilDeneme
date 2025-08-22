@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
 
@@ -6,7 +7,7 @@ namespace SesliDilDeneme.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AIAgentController : Controller
+    public class AIAgentController : ControllerBase
     {
         private readonly AIAgentService _agentService;
 
@@ -19,39 +20,45 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<IActionResult> GetAll()
         {
             var agents = await _agentService.GetAllAsync();
-            return Ok(new { message = "Agents fetched successfully.", error = (string?)null, data = agents });
+            return Ok(agents);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
-            var agent = await _agentService.GetByIdAsync<string>(id);
-            if (agent == null)
-                return NotFound(new { message = "Agent not found.", error = "NOT_FOUND", data = (object?)null });
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz agent id.");
 
-            return Ok(new { message = "Agent fetched successfully.", error = (string?)null, data = agent });
+            var agent = await _agentService.GetByIdAsync<string>(id);
+            if (agent is null)
+                throw new KeyNotFoundException();
+
+            return Ok(agent);
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AIAgent agent)
         {
+            if (agent is null)
+                throw new ArgumentException("Agent verisi zorunludur.");
+
             agent.AgentId = Guid.NewGuid().ToString();
             await _agentService.CreateAsync(agent);
 
-            return CreatedAtAction(nameof(GetById), new { id = agent.AgentId }, new
-            {
-                message = "Agent created successfully.",
-                error = (string?)null,
-                data = agent
-            });
+            return CreatedAtAction(nameof(GetById), new { id = agent.AgentId }, agent);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] AIAgent updated)
         {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz agent id.");
+            if (updated is null)
+                throw new ArgumentException("Güncelleme verisi zorunludur.");
+
             var agent = await _agentService.GetByIdAsync<string>(id);
-            if (agent == null)
-                return NotFound(new { message = "Agent not found.", error = "NOT_FOUND", data = (object?)null });
+            if (agent is null)
+                throw new KeyNotFoundException();
 
             agent.AgentName = updated.AgentName;
             agent.AgentPrompt = updated.AgentPrompt;
@@ -60,20 +67,22 @@ namespace SesliDilDeneme.API.Controllers
             agent.IsActive = updated.IsActive;
 
             await _agentService.UpdateAsync(agent);
-
-            return Ok(new { message = "Agent updated successfully.", error = (string?)null, data = agent });
+            return Ok(agent);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz agent id.");
+
             var agent = await _agentService.GetByIdAsync<string>(id);
-            if (agent == null)
-                return NotFound(new { message = "Agent not found.", error = "NOT_FOUND", data = (object?)null });
+            if (agent is null)
+                throw new KeyNotFoundException();
 
             await _agentService.DeleteAsync(agent);
-
-            return Ok(new { message = "Agent deleted successfully.", error = (string?)null, data = (object?)null });
+            return Ok(new { Deleted = true, Id = id });
+            // İstersen sadece 200 OK mesaj için: return Ok();  (wrapper ApiResponse.Ok yapar)
         }
     }
 }

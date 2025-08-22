@@ -60,7 +60,7 @@ namespace SesliDil.Service.Services
 
             var conversation = await _conversationRepository.GetByIdAsync(conversationId);
             if (conversation == null)
-                throw new Exception("Conversation not found");
+                throw new KeyNotFoundException("Conversation not found");
 
             return _mapper.Map<ConversationSummaryDto>(conversation);
         }
@@ -94,7 +94,7 @@ namespace SesliDil.Service.Services
         public async Task SaveSummaryAsync(string conversationId, string summary)
         {
             var conv = await _conversationRepository.GetByIdAsync(conversationId);
-            if (conv == null) throw new Exception("Conversation bulunamadı");
+            if (conv == null) throw new KeyNotFoundException("Conversation bulunamadı");
 
             conv.Summary = summary;
             _conversationRepository.Update(conv);
@@ -105,16 +105,19 @@ namespace SesliDil.Service.Services
            var deleted = await _dbContext.Database.ExecuteSqlRawAsync(@"
         DELETE FROM ""Conversation"" c
        WHERE NOT EXISTS (
-    /       SELECT 1 FROM ""Message"" m WHERE m.""ConversationId"" = c.""ConversationId""
+           SELECT 1 FROM ""Message"" m WHERE m.""ConversationId"" = c.""ConversationId""
        )
     ");
            return deleted;
        }
         public async Task<ConversationSummaryResult> EndConversationAsync(string conversationId, bool forceEnd = true)
         {
+            if (string.IsNullOrWhiteSpace(conversationId))
+                throw new ArgumentException("Invalid Conversation Id");
+
             var conversation = await GetByIdAsync<string>(conversationId);
             if (conversation == null)
-                throw new ArgumentException("Conversation not found");
+                throw new KeyNotFoundException("Conversation not found");
 
             if (forceEnd)
             {
