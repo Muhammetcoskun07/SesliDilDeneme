@@ -22,6 +22,7 @@ namespace SesliDil.Service.Services
         private readonly IConfiguration _configuration;
         private readonly IRepository<AIAgent> _agentRepository;
         private readonly IRepository<User> _userRepository;
+        private readonly IRepository<Conversation> _conversationRepository;
         private readonly TtsService _ttsService;
         private readonly ILogger<MessageService> _logger;
 
@@ -33,6 +34,7 @@ namespace SesliDil.Service.Services
             HttpClient httpClient,
             IConfiguration configuration,
             IRepository<User> userRepository,
+            IRepository<Conversation> conversationRepository,
             ILogger<MessageService> logger,
             IRepository<AIAgent> agentRepository)
             : base(messageRepository, mapper)
@@ -45,6 +47,7 @@ namespace SesliDil.Service.Services
             _ttsService = ttsService;
             _logger = logger;
             _agentRepository = agentRepository;
+            _conversationRepository = conversationRepository;
             _context = context;
             _httpClient.BaseAddress = new Uri("https://api.openai.com/v1/");
             _httpClient.DefaultRequestHeaders.Authorization =
@@ -220,6 +223,79 @@ Always return 'correctedText' as empty string "" if there are no errors.
                 .OrderBy(m => m.CreatedAt) // Eski -> yeni
                 .ToListAsync();
         }
+        public async Task<string> SpeakMessageAsync(string messageId)
+        {
+            if (string.IsNullOrWhiteSpace(messageId))
+                throw new ArgumentException("MessageId zorunludur.");
+
+            var message = await _messageRepository.GetByIdAsync(messageId);
+            if (message == null)
+                throw new KeyNotFoundException("Mesaj bulunamadı.");
+
+            var conversation = await _conversationRepository.GetByIdAsync(message.ConversationId);
+            if (conversation == null)
+                throw new KeyNotFoundException("Conversation bulunamadı.");
+
+            var user = await _userRepository.GetByIdAsync(conversation.UserId);
+            if (user == null)
+                throw new KeyNotFoundException("Kullanıcı bulunamadı.");
+
+            if (string.IsNullOrWhiteSpace(user.TargetLanguage))
+                throw new ArgumentException("Kullanıcının hedef dili ayarlı değil.");
+
+            var audioBytes = await _ttsService.ConvertTextToSpeechAsync(message.Content, "alloy");
+            var relativeUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
+            var baseUrl = _configuration["AppUrl"]?.TrimEnd('/') ?? "";
+
+            return $"{baseUrl}{relativeUrl}";
+        }
+        public async Task<MessageDto> CreateMessageAsync(MessageDto messageDto)
+        {
+            if (messageDto == null)
+                throw new ArgumentException("Message verisi zorunludur.");
+
+            var message = new Message
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                ConversationId = messageDto.ConversationId,
+                Role = messageDto.Role,
+                Content = messageDto.Content,
+                AudioUrl = messageDto.AudioUrl ?? "",
+                SpeakerType = messageDto.SpeakerType,
+                CreatedAt = DateTime.UtcNow,
+                TranslatedContent = messageDto.TranslatedContent ?? "",
+                GrammarErrors = messageDto.GrammarErrors ?? new List<string>()
+            };
+
+            await CreateAsync(message);
+            return _mapper.Map<MessageDto>(message);
+        }
+        public async Task<TranslatedContentResponse> GetTranslatedMessageAsync(string messageId)
+        {
+            if (string.IsNullOrWhiteSpace(messageId))
+                throw new ArgumentException("MessageId zorunludur.");
+
+            var message = await GetByIdAsync<string>(messageId);
+            if (message == null)
+                throw new KeyNotFoundException("Mesaj bulunamadı.");
+
+            return new TranslatedContentResponse
+            {
+                TranslatedContent = message.TranslatedContent
+            };
+        }
+        public async Task DeleteMessageAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz mesaj kimliği.");
+
+            var message = await GetByIdAsync<string>(id);
+            if (message == null)
+                throw new KeyNotFoundException("Mesaj bulunamadı.");
+
+            await DeleteAsync(message);
+        }
+
     }
 
 
