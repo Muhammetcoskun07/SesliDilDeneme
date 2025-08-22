@@ -107,7 +107,7 @@ namespace SesliDil.Service.Services
 
                 await _context.Progresses
                     .Where(p => p.UserId == userId)
-                    .ExecuteDeleteAsync();
+                    .ExecuteDeleteAsync(); //dbde delete sorgusunu çalıştırıyor
 
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
