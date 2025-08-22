@@ -39,5 +39,23 @@ namespace SesliDil.Service.Services
         {
             return _activityData;
         }
+        public List<AgentActivity> GetByConversationId(string conversationId)
+        {
+            if (string.IsNullOrWhiteSpace(conversationId))
+                throw new ArgumentException("Geçersiz conversationId.");
+
+            if (!_activityData.TryGetValue(conversationId, out var usersDict))
+                throw new KeyNotFoundException("Bu conversation için activity bulunamadı.");
+
+            // tüm user → agent → activity değerlerini düzleştiriyoruz
+            var activities = usersDict
+                .SelectMany(user => user.Value.Values)
+                .ToList();
+
+            if (activities.Count == 0)
+                throw new KeyNotFoundException("Bu conversation için activity bulunamadı.");
+
+            return activities;
+        }
     }
 }
