@@ -14,6 +14,10 @@ using SesliDilDeneme.API.Validators;
 using SesliDilDeneme.API.Hubs;
 using AutoMapper;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.Mvc;                         
+using SesliDilDeneme.API.Filters;                  
+using SesliDilDeneme.API.Middlewares;                    
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +60,20 @@ builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidator
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<ConversationValidator>());
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<AIAgentValidator>());
 builder.Services.AddControllers().AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<SendMessageRequestValidator>());
+
+
+builder.Services.Configure<ApiBehaviorOptions>(o =>
+{
+    // ModelState hatalarını default 400'e bırakma; biz filter ile yöneteceğiz
+    o.SuppressModelStateInvalidFilter = true;
+});
+
+builder.Services.Configure<MvcOptions>(o =>
+{
+    // Global filter'lar
+    o.Filters.Add<ApiResponseValidationFilter>(); // ModelState -> 400 tek tip
+    o.Filters.Add<ResponseWrappingFilter>();      // Başarıları ApiResponse<T>.Ok ile sar
+});
 
 // JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -113,6 +131,8 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseRouting();
 app.UseCors("AllowAll");
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();          
 
 
 app.UseAuthentication(); // ÖNCE Authentication

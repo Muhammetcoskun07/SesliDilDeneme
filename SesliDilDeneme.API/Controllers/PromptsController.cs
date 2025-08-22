@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using System.Linq;
+using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
@@ -15,6 +17,7 @@ namespace SesliDilDeneme.API.Controllers
         {
             _promptService = promptService;
         }
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -29,48 +32,40 @@ namespace SesliDilDeneme.API.Controllers
                 p.Content
             });
 
-            return Ok(new
-            {
-                message = "Prompts retrieved successfully.",
-                error = (string?)null,
-                data = result
-            });
+            return Ok(result);
         }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
-            var prompt = await _promptService.GetByIdAsync(id);
-            if (prompt == null) return NotFound(new
-            {
-                message = "Prompt not found.",
-                error = "NotFound",
-                data = (object?)null
-            });
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
 
-            return Ok(new
+            var prompt = await _promptService.GetByIdAsync(id);
+            if (prompt == null)
+                throw new KeyNotFoundException();
+
+            var result = new
             {
-                message = "Prompt retrieved successfully.",
-                error = (string?)null,
-                data = new
-                {
-                    prompt.PromptId,
-                    prompt.AgentId,
-                    AgentName = prompt.Agent?.AgentName,
-                    prompt.Title,
-                    prompt.Content
-                }
-            });
+                prompt.PromptId,
+                prompt.AgentId,
+                AgentName = prompt.Agent?.AgentName,
+                prompt.Title,
+                prompt.Content
+            };
+
+            return Ok(result);
         }
+
         [HttpGet("agent/{agentId}")]
         public async Task<IActionResult> GetByAgent(string agentId)
         {
+            if (string.IsNullOrWhiteSpace(agentId))
+                throw new ArgumentException("Geçersiz agentId.");
+
             var prompts = await _promptService.GetByAgentAsync(agentId);
-            if (!prompts.Any()) return NotFound(new
-            {
-                message = "No prompts found for the agent.",
-                error = "NotFound",
-                data = (object?)null
-            });
+            if (prompts == null || !prompts.Any())
+                throw new KeyNotFoundException();
 
             var result = prompts.Select(p => new
             {
@@ -81,16 +76,18 @@ namespace SesliDilDeneme.API.Controllers
                 p.Content
             });
 
-            return Ok(new
-            {
-                message = "Prompts retrieved successfully.",
-                error = (string?)null,
-                data = result
-            });
+            return Ok(result);
         }
+
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] PromptCreateDto dto)
         {
+            if (dto == null ||
+                string.IsNullOrWhiteSpace(dto.AgentId) ||
+                string.IsNullOrWhiteSpace(dto.Title) ||
+                string.IsNullOrWhiteSpace(dto.Content))
+                throw new ArgumentException("AgentId, Title ve Content zorunludur.");
+
             var prompt = new Prompt
             {
                 PromptId = Guid.NewGuid().ToString(),
@@ -101,50 +98,34 @@ namespace SesliDilDeneme.API.Controllers
 
             await _promptService.CreateAsync(prompt);
 
-            // AgentName ile geri dönelim
+            // AgentName’le dönmek için tekrar çekiyoruz
             var createdPrompt = await _promptService.GetByIdAsync(prompt.PromptId);
 
-            return CreatedAtAction(nameof(GetById), new { id = createdPrompt.PromptId }, new
+            var result = new
             {
-                message = "Prompt created successfully.",
-                error = (string?)null,
-                data = new
-                {
-                    createdPrompt.PromptId,
-                    createdPrompt.AgentId,
-                    AgentName = createdPrompt.Agent?.AgentName,
-                    createdPrompt.Title,
-                    createdPrompt.Content
-                }
-            });
+                createdPrompt!.PromptId,
+                createdPrompt.AgentId,
+                AgentName = createdPrompt.Agent?.AgentName,
+                createdPrompt.Title,
+                createdPrompt.Content
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = prompt.PromptId }, result);
         }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
+
             var prompt = await _promptService.GetByIdAsync(id);
             if (prompt == null)
-                return NotFound(new
-                {
-                    message = "Prompt not found.",
-                    error = "NotFound",
-                    data = (object?)null
-                });
+                throw new KeyNotFoundException();
 
             await _promptService.DeleteAsync(prompt);
 
-            return Ok(new
-            {
-                message = "Prompt deleted successfully.",
-                error = (string?)null,
-                data = new
-                {
-                    prompt.PromptId,
-                    prompt.AgentId,
-                    AgentName = prompt.Agent?.AgentName,
-                    prompt.Title,
-                    prompt.Content
-                }
-            });
+            return Ok(new { Deleted = true, Id = id });
         }
-        }
+    }
 }

@@ -15,42 +15,32 @@ namespace SesliDilDeneme.API.Controllers
             _statsService = statsService;
         }
 
-        // GET api/AgentActivityStats/{userId}/{agentId}
+        // GET: api/AgentActivityStats/{userId}/{agentId}
         [HttpGet("{userId}/{agentId}")]
         public async Task<IActionResult> GetAgentStatsForUser(string userId, string agentId)
         {
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(agentId))
+                throw new ArgumentException("UserId ve AgentId zorunludur.");
+
             var stats = await _statsService.GetAgentStatsForUserAsync(userId, agentId);
+            if (stats is null)
+                throw new KeyNotFoundException("İlgili user/agent için istatistik bulunamadı.");
 
-            if (stats == null)
-            {
-                return NotFound(new
-                {
-                    message = "Stats not found for given user and agent.",
-                    error = "NOT_FOUND",
-                    data = (object?)null
-                });
-            }
-
-            return Ok(new
-            {
-                message = "Agent stats fetched successfully.",
-                error = (string?)null,
-                data = stats
-            });
+            return Ok(stats); // wrapper filter ApiResponse<T>.Ok ile saracak
         }
 
-        // GET api/AgentActivityStats/{userId}
+        // GET: api/AgentActivityStats/{userId}
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetUserAllAgentStats(string userId)
         {
-            var statsList = await _statsService.GetUserAllAgentStatsAsync(userId);
+            if (string.IsNullOrWhiteSpace(userId))
+                throw new ArgumentException("UserId zorunludur.");
 
-            return Ok(new
-            {
-                message = "User agent stats fetched successfully.",
-                error = (string?)null,
-                data = statsList
-            });
+            var statsList = await _statsService.GetUserAllAgentStatsAsync(userId);
+            if (statsList is null || !statsList.Any())
+                throw new KeyNotFoundException("Kullanıcıya ait istatistik bulunamadı.");
+
+            return Ok(statsList); // liste/collection direkt dön
         }
     }
 }

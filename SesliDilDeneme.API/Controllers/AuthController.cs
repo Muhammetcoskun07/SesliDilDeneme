@@ -6,9 +6,8 @@ using System.Text;
 using Google.Apis.Auth;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
-using SesliDil.Core.DTOs;
-using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
+using SesliDil.Core.DTOs;        // GoogleLoginRequest, AppleLoginRequest burada varsayıldı
+// using SesliDil.Core.Responses; // Controller içinde kullanılmıyor; wrapping filter saracak
 
 namespace SesliDilDeneme.API.Controllers
 {
@@ -27,273 +26,177 @@ namespace SesliDilDeneme.API.Controllers
             _sessionService = sessionService;
         }
 
+        // ===== Strongly-typed DTO'lar =====
+        public sealed class RefreshTokenRequest { public string RefreshToken { get; set; } = default!; }
+
+        public sealed class AuthResultDto
+        {
+            public string AccessToken { get; init; } = default!;
+            public string RefreshToken { get; init; } = default!;
+            public DateTime AccessTokenExpiresAt { get; init; }
+            public DateTime RefreshTokenExpiresAt { get; init; }
+            public string UserId { get; init; } = default!;
+            public bool HasCompletedOnboarding { get; init; }
+            public string? Email { get; init; }
+            public string? FirstName { get; init; }
+            public string? LastName { get; init; }
+        }
+
         [HttpPost("google-login")]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request?.IdToken))
+                throw new ArgumentException("IdToken zorunludur.");
+
+            GoogleJsonWebSignature.Payload payload;
             try
             {
-                var payload = await GoogleJsonWebSignature.ValidateAsync(
+                payload = await GoogleJsonWebSignature.ValidateAsync(
                     request.IdToken,
                     new GoogleJsonWebSignature.ValidationSettings
                     {
                         Audience = new[] { _configuration["Google:ClientId"] }
                     });
-
-                if (string.IsNullOrEmpty(payload.Subject))
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "Giriş başarısız.",
-                        data = (object)null,
-                        error = "InvalidSocialId"
-                    });
-
-                var socialId = payload.Subject.Length > 255 ? payload.Subject[..255] : payload.Subject;
-                var email = string.IsNullOrEmpty(payload.Email) ? $"{socialId}@google.local" : (payload.Email.Length > 255 ? payload.Email[..255] : payload.Email);
-                var firstName = string.IsNullOrEmpty(payload.GivenName) ? "GoogleUser" : (payload.GivenName.Length > 100 ? payload.GivenName[..100] : payload.GivenName);
-                var lastName = string.IsNullOrEmpty(payload.FamilyName) ? "GoogleLastName" : (payload.FamilyName.Length > 100 ? payload.FamilyName[..100] : payload.FamilyName);
-
-                var user = await _userService.GetOrCreateBySocialAsync("google", socialId, email, firstName, lastName);
-                if (user == null)
-                    return Unauthorized(new
-                    {
-                        success = false,
-                        message = "Giriş başarısız.",
-                        data = (object)null,
-                        error = "UserCreateFailed"
-                    });
-
-                var accessToken = GenerateJwtToken(user);
-                var refreshToken = Guid.NewGuid().ToString();
-                var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(30);
-                var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
-
-                await _sessionService.CreateAsync(new Session
-                {
-                    SessionId = Guid.NewGuid().ToString(),
-                    UserId = user.UserId,
-                    CreatedAt = DateTime.UtcNow,
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken,
-                    AccessTokenExpiresAt = accessTokenExpiresAt,
-                    RefreshTokenExpiresAt = refreshTokenExpiresAt
-                });
-
-                return Ok(new
-                {
-                    success = true,
-                    message = "Giriş başarılı.",
-                    data = new
-                    {
-                        accessToken,
-                        refreshToken,
-                        accessTokenExpiresAt,
-                        refreshTokenExpiresAt,
-                        userId = user.UserId,
-                        hasCompletedOnboarding = user.HasCompletedOnboarding
-                    }
-                });
-            }
-            catch (DbUpdateException ex)
-            {
-                var inner = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "Veritabanı hatası.",
-                    data = (object)null,
-                    error = inner
-                });
             }
             catch (InvalidJwtException ex)
             {
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "Google token doğrulaması başarısız.",
-                    data = (object)null,
-                    error = ex.Message
-                });
+                throw new ArgumentException($"Google token doğrulaması başarısız: {ex.Message}");
             }
-            catch (Exception ex)
+
+            if (string.IsNullOrWhiteSpace(payload.Subject))
+                throw new ArgumentException("Geçersiz Google kimliği (subject).");
+
+            var socialId = payload.Subject.Length > 255 ? payload.Subject[..255] : payload.Subject;
+            var email = string.IsNullOrEmpty(payload.Email) ? $"{socialId}@google.local"
+                          : (payload.Email.Length > 255 ? payload.Email[..255] : payload.Email);
+            var firstName = string.IsNullOrEmpty(payload.GivenName) ? "GoogleUser"
+                          : (payload.GivenName.Length > 100 ? payload.GivenName[..100] : payload.GivenName);
+            var lastName = string.IsNullOrEmpty(payload.FamilyName) ? "GoogleLastName"
+                          : (payload.FamilyName.Length > 100 ? payload.FamilyName[..100] : payload.FamilyName);
+
+            var user = await _userService.GetOrCreateBySocialAsync("google", socialId, email, firstName, lastName);
+            if (user == null)
+                throw new Exception("Kullanıcı oluşturulamadı.");
+
+            var (accessToken, refreshToken, accessExp, refreshExp) = await IssueSessionAsync(user);
+
+            var dto = new AuthResultDto
             {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "Sunucu hatası.",
-                    data = (object)null,
-                    error = ex.Message
-                });
-            }
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                AccessTokenExpiresAt = accessExp,
+                RefreshTokenExpiresAt = refreshExp,
+                UserId = user.UserId,
+                HasCompletedOnboarding = user.HasCompletedOnboarding
+            };
+
+            return Ok(dto); // wrapper filter ApiResponse<AuthResultDto>.Ok ile sarar
         }
 
         [HttpPost("apple-login")]
         public async Task<IActionResult> AppleLogin([FromBody] AppleLoginRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request?.IdToken))
+                throw new ArgumentException("IdToken zorunludur.");
+
+            var handler = new JwtSecurityTokenHandler();
+
+            JsonWebKeySet keys;
             try
             {
-                var handler = new JwtSecurityTokenHandler();
-
-                var appleKeysUrl = "https://appleid.apple.com/auth/keys";
                 using var httpClient = new HttpClient();
-                var json = await httpClient.GetStringAsync(appleKeysUrl);
-                var keys = new JsonWebKeySet(json).Keys;
-
-                var validationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuer = "https://appleid.apple.com",
-                    ValidateAudience = true,
-                    ValidAudience = _configuration["Apple:ClientId"],
-                    ValidateLifetime = true,
-                    RequireExpirationTime = true,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKeys = keys
-                };
-
-                var principal = handler.ValidateToken(request.IdToken, validationParameters, out var validatedToken);
-                var jwtToken = (JwtSecurityToken)validatedToken;
-                var socialId = jwtToken.Subject;
-
-                if (string.IsNullOrEmpty(socialId))
-                    return Unauthorized(new
-                    {
-                        success = false,
-                        message = "Giriş başarısız.",
-                        data = (object)null,
-                        error = "InvalidAppleToken"
-                    });
-
-                var tokenEmail = principal.Claims.FirstOrDefault(c => c.Type == "email" ||
-                    c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
-
-                var email = string.IsNullOrEmpty(request.Email)
-                    ? (string.IsNullOrEmpty(tokenEmail) ? $"{socialId}@apple.local" : tokenEmail)
-                    : request.Email;
-
-                if (!string.IsNullOrEmpty(tokenEmail) && !string.IsNullOrEmpty(request.Email) && tokenEmail != request.Email)
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "Email doğrulaması başarısız.",
-                        data = (object)null,
-                        error = "EmailMismatch"
-                    });
-
-                email = email.Length > 255 ? email[..255] : email;
-
-                var firstName = string.IsNullOrEmpty(request.FirstName)
-                    ? (principal.Claims.FirstOrDefault(c => c.Type == "given_name" ||
-                        c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname")?.Value ?? "Guest")
-                    : request.FirstName;
-                firstName = firstName.Length > 100 ? firstName[..100] : firstName;
-
-                var lastName = string.IsNullOrEmpty(request.LastName)
-                    ? (principal.Claims.FirstOrDefault(c => c.Type == "family_name" ||
-                        c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname")?.Value ?? "User")
-                    : request.LastName;
-                lastName = lastName.Length > 100 ? lastName[..100] : lastName;
-
-                var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, email, firstName, lastName);
-                if (user == null)
-                    return Unauthorized(new
-                    {
-                        success = false,
-                        message = "Giriş başarısız.",
-                        data = (object)null,
-                        error = "UserCreateFailed"
-                    });
-
-                var accessToken = GenerateJwtToken(user);
-                var refreshToken = Guid.NewGuid().ToString();
-                var accessTokenExpiresAt = DateTime.UtcNow.AddMinutes(30);
-                var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(7);
-
-                await _sessionService.CreateAsync(new Session
-                {
-                    SessionId = Guid.NewGuid().ToString(),
-                    UserId = user.UserId,
-                    CreatedAt = DateTime.UtcNow,
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken,
-                    AccessTokenExpiresAt = accessTokenExpiresAt,
-                    RefreshTokenExpiresAt = refreshTokenExpiresAt
-                });
-
-                return Ok(new
-                {
-                    success = true,
-                    message = "Giriş başarılı.",
-                    data = new
-                    {
-                        accessToken,
-                        refreshToken,
-                        accessTokenExpiresAt,
-                        refreshTokenExpiresAt,
-                        userId = user.UserId,
-                        hasCompletedOnboarding = user.HasCompletedOnboarding,
-                        email = user.Email,
-                        firstName = user.FirstName,
-                        lastName = user.LastName
-                    }
-                });
-            }
-            catch (SecurityTokenException ex)
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "Apple token doğrulaması başarısız.",
-                    data = (object)null,
-                    error = ex.Message
-                });
-            }
-            catch (DbUpdateException ex)
-            {
-                var inner = ex.InnerException?.Message ?? ex.Message;
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "Veritabanı hatası.",
-                    data = (object)null,
-                    error = inner
-                });
+                var json = await httpClient.GetStringAsync("https://appleid.apple.com/auth/keys");
+                keys = new JsonWebKeySet(json);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "Sunucu hatası.",
-                    data = (object)null,
-                    error = ex.Message
-                });
+                throw new Exception($"Apple public keys alınamadı: {ex.Message}");
             }
+
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = "https://appleid.apple.com",
+                ValidateAudience = true,
+                ValidAudience = _configuration["Apple:ClientId"],
+                ValidateLifetime = true,
+                RequireExpirationTime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKeys = keys.Keys
+            };
+
+            ClaimsPrincipal principal;
+            SecurityToken validatedToken;
+            try
+            {
+                principal = handler.ValidateToken(request.IdToken, validationParameters, out validatedToken);
+            }
+            catch (SecurityTokenException ex)
+            {
+                throw new ArgumentException($"Apple token doğrulaması başarısız: {ex.Message}");
+            }
+
+            var jwtToken = (JwtSecurityToken)validatedToken;
+            var socialId = jwtToken.Subject;
+            if (string.IsNullOrWhiteSpace(socialId))
+                throw new ArgumentException("Geçersiz Apple kimliği (subject).");
+
+            var tokenEmail = principal.Claims.FirstOrDefault(c => c.Type == "email" || c.Type == ClaimTypes.Email)?.Value;
+
+            var email = string.IsNullOrEmpty(request.Email)
+                ? (string.IsNullOrEmpty(tokenEmail) ? $"{socialId}@apple.local" : tokenEmail)
+                : request.Email;
+
+            if (!string.IsNullOrEmpty(tokenEmail) && !string.IsNullOrEmpty(request.Email) && tokenEmail != request.Email)
+                throw new ArgumentException("Email doğrulaması başarısız (EmailMismatch).");
+
+            email = email.Length > 255 ? email[..255] : email;
+
+            var firstName = string.IsNullOrEmpty(request.FirstName)
+                ? (principal.Claims.FirstOrDefault(c => c.Type == "given_name" || c.Type == ClaimTypes.GivenName)?.Value ?? "Guest")
+                : request.FirstName;
+            firstName = firstName.Length > 100 ? firstName[..100] : firstName;
+
+            var lastName = string.IsNullOrEmpty(request.LastName)
+                ? (principal.Claims.FirstOrDefault(c => c.Type == "family_name" || c.Type == ClaimTypes.Surname)?.Value ?? "User")
+                : request.LastName;
+            lastName = lastName.Length > 100 ? lastName[..100] : lastName;
+
+            var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, email, firstName, lastName);
+            if (user == null)
+                throw new Exception("Kullanıcı oluşturulamadı.");
+
+            var (accessToken, refreshToken, accessExp, refreshExp) = await IssueSessionAsync(user);
+
+            var dto = new AuthResultDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                AccessTokenExpiresAt = accessExp,
+                RefreshTokenExpiresAt = refreshExp,
+                UserId = user.UserId,
+                HasCompletedOnboarding = user.HasCompletedOnboarding,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName
+            };
+
+            return Ok(dto);
         }
 
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
-            var session = await _sessionService.GetByRefreshTokenAsync(request.RefreshToken);
+            if (string.IsNullOrWhiteSpace(request?.RefreshToken))
+                throw new ArgumentException("Refresh token zorunludur.");
 
+            var session = await _sessionService.GetByRefreshTokenAsync(request.RefreshToken);
             if (session == null || session.RefreshTokenExpiresAt < DateTime.UtcNow)
-                return Unauthorized(new
-                {
-                    success = false,
-                    message = "Refresh başarısız.",
-                    data = (object)null,
-                    error = "InvalidOrExpiredRefreshToken"
-                });
+                throw new ArgumentException("Geçersiz veya süresi dolmuş refresh token.");
 
             var user = await _userService.GetByIdAsync(session.UserId);
             if (user == null)
-                return Unauthorized(new
-                {
-                    success = false,
-                    message = "Refresh başarısız.",
-                    data = (object)null,
-                    error = "UserNotFound"
-                });
+                throw new KeyNotFoundException("Kullanıcı bulunamadı.");
 
             var newAccessToken = GenerateJwtToken(user);
             var newAccessExp = DateTime.UtcNow.AddMinutes(30);
@@ -302,36 +205,50 @@ namespace SesliDilDeneme.API.Controllers
             session.AccessTokenExpiresAt = newAccessExp;
             await _sessionService.UpdateAsync(session);
 
-            return Ok(new
+            var dto = new AuthResultDto
             {
-                success = true,
-                message = "Token yenilendi.",
-                data = new
-                {
-                    accessToken = newAccessToken,
-                    accessTokenExpiresAt = newAccessExp,
-                    refreshToken = session.RefreshToken,
-                    refreshTokenExpiresAt = session.RefreshTokenExpiresAt,
-                    userId = user.UserId,
-                    hasCompletedOnboarding = user.HasCompletedOnboarding
-                }
-            });
+                AccessToken = newAccessToken,
+                AccessTokenExpiresAt = newAccessExp,
+                RefreshToken = session.RefreshToken,
+                RefreshTokenExpiresAt = (DateTime)session.RefreshTokenExpiresAt,
+                UserId = user.UserId,
+                HasCompletedOnboarding = user.HasCompletedOnboarding,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName
+            };
+
+            return Ok(dto);
         }
 
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            return Ok(new
-            {
-                success = true,
-                message = "Çıkış yapıldı.",
-                data = (object)null
-            });
+            // server-side invalidation eklenecekse burada yapılır.
+            return Ok(true); // bool dön; wrapper ApiResponse<bool>.Ok yapar
         }
 
-        public class RefreshTokenRequest
+        // ===== helpers =====
+
+        private async Task<(string accessToken, string refreshToken, DateTime accessExp, DateTime refreshExp)> IssueSessionAsync(User user)
         {
-            public string RefreshToken { get; set; }
+            var accessToken = GenerateJwtToken(user);
+            var refreshToken = Guid.NewGuid().ToString();
+            var accessExp = DateTime.UtcNow.AddMinutes(30);
+            var refreshExp = DateTime.UtcNow.AddDays(7);
+
+            await _sessionService.CreateAsync(new Session
+            {
+                SessionId = Guid.NewGuid().ToString(),
+                UserId = user.UserId,
+                CreatedAt = DateTime.UtcNow,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                AccessTokenExpiresAt = accessExp,
+                RefreshTokenExpiresAt = refreshExp
+            });
+
+            return (accessToken, refreshToken, accessExp, refreshExp);
         }
 
         private string GenerateJwtToken(User user)
