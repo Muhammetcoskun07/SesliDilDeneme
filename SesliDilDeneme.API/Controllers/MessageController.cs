@@ -49,115 +49,33 @@ namespace SesliDilDeneme.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Geçersiz mesaj kimliği.");
-
             var message = await _messageService.GetByIdAsync<string>(id);
-            if (message == null)
-                throw new KeyNotFoundException();
-
             return Ok(message);
         }
 
         [HttpGet("conversation/{conversationId}")]
         public async Task<IActionResult> GetByConversationId(string conversationId)
         {
-            if (string.IsNullOrWhiteSpace(conversationId))
-                throw new ArgumentException("Geçersiz konuşma kimliği.");
-
             var messages = await _messageService.GetMessagesByConversationIdAsync(conversationId);
             return Ok(messages);
         }
-
         [HttpPost("speak")]
         public async Task<IActionResult> SpeakByMessageId([FromBody] SpeakByMessageIdRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request?.MessageId))
-                throw new ArgumentException("MessageId zorunludur.");
-
-            var message = await _messageRepository.GetByIdAsync(request.MessageId);
-            if (message == null)
-                throw new KeyNotFoundException();
-
-            var conversation = await _conversationRepository.GetByIdAsync(message.ConversationId);
-            if (conversation == null)
-                throw new KeyNotFoundException();
-
-            var user = await _userRepository.GetByIdAsync(conversation.UserId);
-            if (user == null)
-                throw new KeyNotFoundException();
-
-            if (string.IsNullOrWhiteSpace(user.TargetLanguage))
-                throw new ArgumentException("Kullanıcının hedef dili ayarlı değil.");
-
-            var audioBytes = await _ttsService.ConvertTextToSpeechAsync(message.Content, "alloy");
-            var relativeUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
-            var baseUrl = _configuration["AppUrl"]?.TrimEnd('/') ?? "";
-            var fullUrl = $"{baseUrl}{relativeUrl}";
-
-            return Ok(new { AudioUrl = fullUrl });
+            var audioUrl = await _messageService.SpeakMessageAsync(request.MessageId);
+            return Ok(new { AudioUrl = audioUrl });
         }
-
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] MessageDto messageDto)
         {
-            // NOT: FluentValidation -> ModelState’e yazacak; invalid ise ValidationFilter 400 döndürecek
-
-            var message = new Message
-            {
-                MessageId = Guid.NewGuid().ToString(),
-                ConversationId = messageDto.ConversationId,
-                Role = messageDto.Role,
-                Content = messageDto.Content,
-                AudioUrl = messageDto.AudioUrl ?? "",
-                SpeakerType = messageDto.SpeakerType,
-                CreatedAt = DateTime.UtcNow,
-                TranslatedContent = messageDto.TranslatedContent ?? "",
-                GrammarErrors = messageDto.GrammarErrors ?? new List<string>()
-            };
-
-            await _messageService.CreateAsync(message);
-            var messageDtoResponse = _mapper.Map<MessageDto>(message);
-
-            return CreatedAtAction(nameof(GetById), new { id = message.MessageId }, messageDtoResponse);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] MessageDto messageDto)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Geçersiz mesaj kimliği.");
-            // FluentValidation => ModelState’e yazar
-
-            var message = await _messageService.GetByIdAsync<string>(id);
-            if (message == null)
-                throw new KeyNotFoundException();
-
-            message.ConversationId = messageDto.ConversationId;
-            message.Role = messageDto.Role;
-            message.Content = messageDto.Content;
-            message.AudioUrl = messageDto.AudioUrl;
-            message.SpeakerType = messageDto.SpeakerType;
-            message.CreatedAt = DateTime.UtcNow;
-            message.TranslatedContent = messageDto.TranslatedContent ?? message.TranslatedContent;
-            message.GrammarErrors = messageDto.GrammarErrors ?? message.GrammarErrors;
-
-            await _messageService.UpdateAsync(message);
-            return Ok(message);
+            var createdMessage = await _messageService.CreateMessageAsync(messageDto);
+            return CreatedAtAction(nameof(GetById), new { id = createdMessage.MessageId }, createdMessage);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Geçersiz mesaj kimliği.");
-
-            var message = await _messageService.GetByIdAsync<string>(id);
-            if (message == null)
-                throw new KeyNotFoundException();
-
-            await _messageService.DeleteAsync(message);
-            // Boş dönersen filter 200 + ApiResponse.Ok yapar
+            await _messageService.DeleteMessageAsync(id);
             return Ok(new { Deleted = true, Id = id });
         }
 
@@ -172,31 +90,14 @@ namespace SesliDilDeneme.API.Controllers
         [HttpGet("translated")]
         public async Task<IActionResult> GetTranslatedMessage([FromQuery] string messageId)
         {
-            if (string.IsNullOrWhiteSpace(messageId))
-                throw new ArgumentException("MessageId zorunludur.");
-
-            var message = await _messageService.GetByIdAsync(messageId);
-            if (message == null)
-                throw new KeyNotFoundException();
-
-            var response = new TranslatedContentResponse
-            {
-                TranslatedContent = message.TranslatedContent
-            };
-
+            var response = await _messageService.GetTranslatedMessageAsync(messageId);
             return Ok(response);
         }
 
         [HttpGet("{messageId}/grammar-errors")]
         public async Task<IActionResult> GetGrammarErrors(string messageId)
         {
-            if (string.IsNullOrWhiteSpace(messageId))
-                throw new ArgumentException("MessageId zorunludur.");
-
             var message = await _messageService.GetByIdAsync(messageId);
-            if (message == null)
-                throw new KeyNotFoundException();
-
             return Ok(message.GrammarErrors);
         }
     }
