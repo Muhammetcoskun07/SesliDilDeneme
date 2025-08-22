@@ -77,7 +77,61 @@ namespace SesliDil.Service.Services
             var userProgress = progresses.FirstOrDefault(p => p.UserId == userId);
             return userProgress;
         }
+        public async Task<Progress> CreateProgressAsync(ProgressDto progressDto)
+        {
+            if (progressDto is null || string.IsNullOrWhiteSpace(progressDto.UserId))
+                throw new ArgumentException("Geçersiz ilerleme verisi.");
 
+            var progress = new Progress
+            {
+                ProgressId = Guid.NewGuid().ToString(),
+                UserId = progressDto.UserId,
+                DailyConversationCount = progressDto.DailyConversationCount,
+                TotalConversationTimeMinutes = progressDto.TotalConversationTimeMinutes,
+                CurrentStreakDays = progressDto.CurrentStreakDays,
+                LongestStreakDays = progressDto.LongestStreakDays,
+                CurrentLevel = progressDto.CurrentLevel,
+                LastConversationDate = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await CreateAsync(progress);
+            return progress;
+        }
+        public async Task<Progress> UpdateProgressAsync(string id, ProgressDto progressDto)
+        {
+            if (string.IsNullOrWhiteSpace(id) || progressDto is null)
+                throw new ArgumentException("Geçersiz giriş.");
+
+            var progress = await GetByIdAsync<string>(id);
+            if (progress is null)
+                throw new KeyNotFoundException();
+
+            progress.UserId = progressDto.UserId;
+            progress.DailyConversationCount = progressDto.DailyConversationCount;
+            progress.TotalConversationTimeMinutes = progressDto.TotalConversationTimeMinutes;
+            progress.CurrentStreakDays = progressDto.CurrentStreakDays;
+            progress.LongestStreakDays = progressDto.LongestStreakDays;
+            progress.CurrentLevel = progressDto.CurrentLevel;
+            progress.LastConversationDate = progressDto.LastConversationDate == default
+                ? progress.LastConversationDate
+                : progressDto.LastConversationDate;
+            progress.UpdatedAt = DateTime.UtcNow;
+
+            await UpdateAsync(progress);
+            return progress;
+        }
+        public async Task DeleteProgressAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
+
+            var progress = await GetByIdAsync<string>(id);
+            if (progress is null)
+                throw new KeyNotFoundException();
+
+            await DeleteAsync(progress);
+        }
         private string DetermineLevel(int wpm)
         {
             if (wpm <= 60) return "A1  I know basic words and simple phrases";
