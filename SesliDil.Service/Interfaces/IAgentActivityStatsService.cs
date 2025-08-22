@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using SesliDil.Core.DTOs;
+using SesliDil.Core.Entities;
 
 namespace SesliDil.Service.Interfaces
 {
@@ -11,5 +12,6 @@ namespace SesliDil.Service.Interfaces
     {
         Task<List<UserAgentStatsDto>> GetUserAllAgentStatsAsync(string userId);
         Task<UserAgentStatsDto> GetAgentStatsForUserAsync(string userId, string agentId);
+        Task<List<ConversationAgentActivity>> GetByConversationIdAsync(string conversationId);
     }
 }
