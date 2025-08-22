@@ -40,5 +40,51 @@ namespace SesliDil.Service.Services
 
             return _mapper.Map<AIAgentDto>(agent);
         }
+        public async Task<AIAgentDto> CreateAgentAsync(AIAgent agent)
+        {
+            if (agent == null)
+                throw new ArgumentNullException(nameof(agent), "Agent verisi zorunludur.");
+
+            agent.AgentId = Guid.NewGuid().ToString(); // ID ataması
+
+            await _agentRepository.AddAsync(agent);
+            await _agentRepository.SaveChangesAsync(); // kaydetmeyi unutma
+
+            return _mapper.Map<AIAgentDto>(agent); // DTO ile dön
+        }
+        public async Task<AIAgent> UpdateAgentAsync(string id, AIAgent updatedAgent)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz agent id.");
+            if (updatedAgent == null)
+                throw new ArgumentNullException(nameof(updatedAgent), "Güncelleme verisi zorunludur.");
+
+            var agent = await _agentRepository.GetByIdAsync(id);
+            if (agent == null)
+                throw new KeyNotFoundException("Agent bulunamadı.");
+
+            agent.AgentName = updatedAgent.AgentName;
+            agent.AgentPrompt = updatedAgent.AgentPrompt;
+            agent.AgentDescription = updatedAgent.AgentDescription;
+            agent.AgentType = updatedAgent.AgentType;
+            agent.IsActive = updatedAgent.IsActive;
+
+            await _agentRepository.UpdateAsync(agent);
+            return agent;
+        }
+        public async Task<string> DeleteAgentAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz agent id.");
+
+            var agent = await _agentRepository.GetByIdAsync(id);
+            if (agent == null)
+                throw new KeyNotFoundException("Agent bulunamadı.");
+
+            _agentRepository.Delete(agent);      // Delete metodu senin interface’ten
+            await _agentRepository.SaveChangesAsync(); // değişiklikleri kaydet
+
+            return id;
+        }
     }
 }
