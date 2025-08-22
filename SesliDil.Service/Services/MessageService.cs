@@ -73,40 +73,12 @@ namespace SesliDil.Service.Services
             if (agent == null || !agent.IsActive)
                 throw new ArgumentException("Invalid or inactive agent");
 
-            // Prompt
-            var prompt = $@"
-You are a helpful language tutor.
+            // 🔹 Sistem prompt: kullanıcı profili ve genel talimat
+            var systemPrompt = $@" 
+{agent.AgentPrompt ?? ""}
+You are a helpful language tutor. And your name is {agent.AgentName ?? "Language Tutor"}.
 
-The learner's message: ""{request.Content}""
-
-Tasks:
-1. Identify **only real grammar mistakes** in the learner's original message in {user.TargetLanguage}. 
-   -Focus ONLY on grammar mistakes. Do NOT consider missing or extra punctuation marks (periods, commas, question marks) as errors. Ignore all punctuation issues.
-   - Focus only on grammar issues (verb conjugation, word order, articles, plural/singular, agreement, etc.).
-   - Ignore all punctuation issues completely. Do NOT mark missing or extra punctuation as grammar errors.
-2. Provide the corrected version of the learner's message in {user.TargetLanguage} without changing its meaning.
-3. Respond to the corrected message in {user.TargetLanguage}.
-4. Translate your response into the learner's native language ({user.NativeLanguage}).
-
-Return strictly JSON in this exact format:
-{{
-  ""correctedText"": ""..."",
-  ""aiText"": ""..."",
-  ""translatedContent"": ""..."",
-  ""grammarErrors"": [""..."", ""...""]
-}}
-Always fill 'grammarErrors' with every issue found. If there are no mistakes, return an empty array.Ignore all punctuation issues completely.
-";
-
-            // system prompt
-            var messages = new List<object>
-    {
-        new
-        {
-            role = "system",
-            content = $@"{agent.AgentPrompt ?? ""}
-
-Here is the learner's profile:
+Learner profile:
 - Native language: {user.NativeLanguage}
 - Target language: {user.TargetLanguage}
 - Proficiency level: {user.ProficiencyLevel}
@@ -116,19 +88,37 @@ Here is the learner's profile:
 - Improvement goals: {improvementGoals}
 - Topic interests: {topicInterests}
 
-Tailor your answers to their goals and preferences."
-        }
+Instructions:
+- Only check grammar errors in the NEW user message.
+- Provide the corrected version if there are grammar errors.
+- Respond naturally in the target language.
+- Translate your response to the learner's native language.
+- Ignore punctuation errors.
+- Return strictly JSON:
+{{
+  ""correctedText"": ""..."",
+  ""aiText"": ""..."",
+  ""translatedContent"": ""..."",
+  ""grammarErrors"": [""..."", ""...""]
+}}
+Always return 'correctedText' as empty string "" if there are no errors.
+";
+
+            // 🔹 Mesaj listesi
+            var messages = new List<object>
+    {
+        new { role = "system", content = systemPrompt }
     };
 
-            // 🔹 Son 5 mesajı (user + assistant) al ve ekle
+            // 🔹 Son 5 mesajı al ve ekle
             var lastMessages = await GetLastMessagesAsync(request.ConversationId, 5);
             foreach (var msg in lastMessages)
             {
                 messages.Add(new { role = msg.Role, content = msg.Content });
             }
 
-            // Kullanıcının yeni mesajını ekle
-            messages.Add(new { role = "user", content = prompt });
+            // 🔹 Kullanıcının yeni mesajını doğrudan ekle
+            messages.Add(new { role = "user", content = request.Content });
 
             var requestBody = new
             {
@@ -143,6 +133,7 @@ Tailor your answers to their goals and preferences."
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             var jsonText = result?.Choices?.FirstOrDefault()?.Message?.Content ?? "{}";
 
+            // 🔹 Kod blokları varsa JSON'u çıkart
             jsonText = jsonText.Trim();
             if (jsonText.StartsWith("```"))
             {
@@ -154,12 +145,14 @@ Tailor your answers to their goals and preferences."
 
             var parsed = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(jsonText);
 
-            var correctedText = parsed["correctedText"].GetString();
-            var aiText = parsed["aiText"].GetString();
-            var translatedContent = parsed["translatedContent"].GetString();
-            var grammarErrors = parsed["grammarErrors"].EnumerateArray().Select(e => e.GetString()).ToList();
+            var correctedText = parsed.ContainsKey("correctedText") ? parsed["correctedText"].GetString() ?? "" : "";
+            var aiText = parsed.ContainsKey("aiText") ? parsed["aiText"].GetString() ?? "" : "";
+            var translatedContent = parsed.ContainsKey("translatedContent") ? parsed["translatedContent"].GetString() ?? "" : "";
+            var grammarErrors = parsed.ContainsKey("grammarErrors")
+                ? parsed["grammarErrors"].EnumerateArray().Select(e => e.GetString()).Where(s => s != null).ToList()
+                : new List<string>();
 
-            // Kullanıcı mesajını kaydet
+            // 🔹 Kullanıcı mesajını kaydet
             var userMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -173,25 +166,27 @@ Tailor your answers to their goals and preferences."
             };
             await CreateAsync(userMessage);
 
-            // AI mesajı -> TTS
+            // 🔹 AI mesajını TTS ile oluştur
             var voice = GetVoiceByLanguage(user.TargetLanguage);
             var audioBytes = await _ttsService.ConvertTextToSpeechAsync(aiText, voice);
             var audioUrl = await _ttsService.SaveAudioToFileAsync(audioBytes);
 
-            // AI mesajını kaydet
             var aiMessage = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
-                ConversationId = userMessage.ConversationId,
+                ConversationId = request.ConversationId,
                 Role = "assistant",
                 Content = aiText,
                 TranslatedContent = translatedContent,
                 AudioUrl = audioUrl,
                 CreatedAt = DateTime.UtcNow,
                 SpeakerType = "assistant",
+                CorrectedText = correctedText,
+                GrammarErrors = grammarErrors
             };
             await CreateAsync(aiMessage);
 
+            // 🔹 DTO oluştur ve dön
             var responseDto = _mapper.Map<MessageDto>(aiMessage);
             responseDto.CorrectedText = correctedText;
             responseDto.GrammarErrors = grammarErrors;
@@ -199,17 +194,7 @@ Tailor your answers to their goals and preferences."
         }
 
 
-        private string GetVoiceByLanguage(string language)
-        {
-            return language.ToLower() switch
-            {
-                "turkish" => "alloy",
-                "english" => "alloy",
-                "spanish" => "alloy",
-                
-                _ => "alloy" // Varsayılan ses
-            };
-        }
+        private string GetVoiceByLanguage(string language) => "alloy";
         public async Task<IEnumerable<MessageDto>> GetMessagesByConversationIdAsync(string conversationId)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
@@ -225,164 +210,8 @@ Tailor your answers to their goals and preferences."
                 .Where(m => m.ConversationId == conversationId)
                 .OrderByDescending(m => m.CreatedAt)
                 .Take(count)
-                .OrderBy(m => m.CreatedAt) // sırayı koru (eski -> yeni)
+                .OrderBy(m => m.CreatedAt) 
                 .ToListAsync();
-        }
-        public async Task<MessageDto> CreateMessageAsync(string conversationId, string role, string content, string audioUrl)
-        {
-            if (string.IsNullOrEmpty(conversationId) || string.IsNullOrEmpty(role) || string.IsNullOrEmpty(content))
-                throw new ArgumentNullException("Invalid input");
-
-            var message = new Message
-            {
-                MessageId = Guid.NewGuid().ToString(),
-                ConversationId = conversationId,
-                Role = role,
-                Content = content,
-                AudioUrl = audioUrl,
-                SpeakerType = role,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await CreateAsync(message);
-            return _mapper.Map<MessageDto>(message);
-        }
-
-
-
-
-        public async Task<string> GenerateSpeechAsync(string text)
-        {
-            var requestBody = new
-            {
-                model = "tts-1",
-                input = text,
-                voice = "alloy"
-            };
-
-            var response = await _httpClient.PostAsJsonAsync("audio/speech", requestBody);
-            response.EnsureSuccessStatusCode();
-
-            var audioStream = await response.Content.ReadAsStreamAsync();
-            return "https://your-storage-bucket/speech.mp3";
-        }
-
-        public async Task<string> TranslateAsync(string text, string nativeLanguage, string agentId)
-        {
-            if (string.IsNullOrEmpty(text)) return string.Empty;
-
-            var agent = await _agentRepository.GetByIdAsync(agentId);
-            if (agent == null || !agent.IsActive)
-                throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
-
-            var prompt = $"{agent.AgentPrompt}\nTranslate the following into {nativeLanguage}:\n{text}";
-
-            var requestBody = new
-            {
-                model = "gpt-4o",
-                messages = new[]
-                {
-            new { role = "system", content = "You are a helpful translator." },
-            new { role = "user", content = prompt }
-        },
-                temperature = 0.5
-            };
-
-            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
-            response.EnsureSuccessStatusCode();
-
-            var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
-            return result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
-        }
-
-        public async Task<List<string>> CheckGrammarAsync(string text, string agentId)
-        {
-            if (string.IsNullOrEmpty(text)) return new List<string>();
-
-            var agent = await _agentRepository.GetByIdAsync(agentId);
-            if (agent == null || !agent.IsActive)
-                throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
-
-            var prompt = $"{agent.AgentPrompt}\nIdentify and list all grammar mistakes in the following text. Return only the errors:\n{text}";
-
-            var requestBody = new
-            {
-                model = "gpt-4o",
-                messages = new[]
-                {
-                    new { role = "system", content = "You are a grammar checking assistant." },
-                    new { role = "user", content = prompt }
-                },
-                temperature = 0.2
-            };
-
-            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
-            response.EnsureSuccessStatusCode();
-
-            var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
-            var errorsText = result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
-
-            var errors = errorsText
-                .Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(e => e.Trim())
-                .ToList();
-
-            return errors;
-        }
-
-        private async Task<byte[]> DownloadAudioAsync(string audioUrl)
-        {
-            using var client = new HttpClient();
-            return await client.GetByteArrayAsync(audioUrl);
-        }
-        public async Task<string> GetAIResponseAsync(string userInput, string targetLanguage, string agentId, string conversationId, string userId)
-        {
-            var agent = await _agentRepository.GetByIdAsync(agentId);
-            if (agent == null || !agent.IsActive)
-                throw new ArgumentException("Invalid or inactive agent", nameof(agentId));
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user == null)
-                throw new ArgumentException("User not found", nameof(userId));
-
-            // JSON alanlarını string'e çevir
-            string learningGoals = user.LearningGoals != null ? JsonSerializer.Serialize(user.LearningGoals) : "";
-            string improvementGoals = user.ImprovementGoals != null ? JsonSerializer.Serialize(user.ImprovementGoals) : "";
-            string topicInterests = user.TopicInterests != null ? JsonSerializer.Serialize(user.TopicInterests) : "";
-
-            var promptMessages = new List<object>
-{
-    new
-    {
-        role = "system",
-        content = $@"{agent.AgentPrompt}
-You are a helpful language tutor responding in {targetLanguage}.
-Here is the learner's profile:
-- Native language: {user.NativeLanguage}
-- Target language: {user.TargetLanguage}
-- Proficiency level: {user.ProficiencyLevel}
-- Age range: {user.AgeRange}
-- Weekly speaking goal: {user.WeeklySpeakingGoal}
-- Learning goals: {learningGoals}
-- Improvement goals: {improvementGoals}
-- Topic interests: {topicInterests}
-Tailor your answers to their goals and preferences."
-    }
-};
-
-            promptMessages.Add(new { role = "user", content = userInput });
-
-            var requestBody = new
-            {
-                model = "gpt-4o",
-                messages = promptMessages,
-                temperature = 0.7
-            };
-
-            var response = await _httpClient.PostAsJsonAsync("chat/completions", requestBody);
-            response.EnsureSuccessStatusCode();
-
-            var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
-            return result?.Choices?.FirstOrDefault()?.Message?.Content ?? "";
         }
         public async Task<List<Message>> GetAllMessagesAsync(string conversationId)
         {

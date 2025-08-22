@@ -80,50 +80,46 @@ namespace SesliDil.Service.Services
 
             return user;
         }
-        
+
         public async Task<bool> DeleteUserCompletelyAsync(string userId)
         {
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null) return false;
 
-            // 1. Kullanıcının tüm session'larını sil
-            var sessions = await _context.Sessions.Where(s => s.UserId == userId).ToListAsync();
-            _context.Sessions.RemoveRange(sessions);
+            await using var transaction = await _context.Database.BeginTransactionAsync(); //kısmi silme olmayacak bu sayede
 
-            // 2. Kullanıcının progress kayıtlarını sil
-            var progresses = await _context.Progresses.Where(p => p.UserId == userId).ToListAsync();
-            _context.Progresses.RemoveRange(progresses);
-
-            // 3. Kullanıcının konuşmalarını bul
-            var conversations = await _context.Conversations.Where(c => c.UserId == userId).ToListAsync();
-            //var data = await (from m in _context.Messages
-            //            join c in conversations on m.ConversationId equals c.ConversationId
-            //            where c.UserId == userId
-            //            select new { m, c }
-            //             ).ToListAsync();
-
-            //_context.Messages.RemoveRange(data.Select(x => x.m));
-            //_context.Conversations.RemoveRange(data.Select(x => x.c));
-
-            foreach (var convo in conversations)
+            try
             {
-                // 3.1 Konuşmanın mesajlarını sil
-                var messages = await _context.Messages.Where(m => m.ConversationId == convo.ConversationId).ToListAsync();
-                _context.Messages.RemoveRange(messages);
+                await _context.Messages
+                    .Where(m => _context.Conversations
+                        .Where(c => c.UserId == userId)
+                        .Select(c => c.ConversationId)
+                        .Contains(m.ConversationId))
+                    .ExecuteDeleteAsync();
 
-              
+                await _context.Conversations
+                    .Where(c => c.UserId == userId)
+                    .ExecuteDeleteAsync();
+
+                await _context.Sessions
+                    .Where(s => s.UserId == userId)
+                    .ExecuteDeleteAsync();
+
+                await _context.Progresses
+                    .Where(p => p.UserId == userId)
+                    .ExecuteDeleteAsync(); //dbde delete sorgusunu çalıştırıyor
+
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
             }
-
-            // 4. Kullanıcının konuşmalarını sil
-            _context.Conversations.RemoveRange(conversations);
-
-
-            // 6. Kullanıcının kendisini sil
-            _context.Users.Remove(user);
-
-            // 7. Kaydet
-            await _context.SaveChangesAsync();
-            return true;
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
         public async Task<bool> UpdateLearningGoalsAsync(string userId, List<string> goals)
         {
