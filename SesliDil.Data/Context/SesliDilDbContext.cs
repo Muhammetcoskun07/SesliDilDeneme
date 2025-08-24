@@ -160,6 +160,7 @@ namespace SesliDil.Data.Context
                 entity.Property(e => e.AgentId).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Content).IsRequired().HasMaxLength(400);
+                entity.Property(e => e.PromptMessage).HasMaxLength(1000);
             });
         }
     }

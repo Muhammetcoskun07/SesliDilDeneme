@@ -11,5 +11,6 @@ namespace SesliDil.Core.DTOs
         public string AgentId { get; set; }
         public string Title { get; set; }
         public string Content { get; set; }
+        public string? PromptMessage { get; set; }
     }
 }
