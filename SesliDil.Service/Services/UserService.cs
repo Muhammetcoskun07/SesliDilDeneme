@@ -42,33 +42,10 @@ namespace SesliDil.Service.Services
 
             if (user != null)
             {
-                // Eğer daha önce kaydolmuş ama eksik bilgi varsa güncelle
-                bool updated = false;
-
-                if (!string.IsNullOrWhiteSpace(firstName) && user.FirstName != firstName)
-                {
-                    user.FirstName = firstName.Length > 100 ? firstName[..100] : firstName;
-                    updated = true;
-                }
-
-                if (!string.IsNullOrWhiteSpace(lastName) && user.LastName != lastName)
-                {
-                    user.LastName = lastName.Length > 100 ? lastName[..100] : lastName;
-                    updated = true;
-                }
-
-                if (!string.IsNullOrWhiteSpace(email) && user.Email != email)
-                {
-                    user.Email = email.Length > 255 ? email[..255] : email;
-                    updated = true;
-                }
-
-                if (updated)
-                {
-                    user.LastLoginAt = DateTime.UtcNow;
-                    _context.Users.Update(user);
-                    await _context.SaveChangesAsync();
-                }
+                // Mevcut kullanıcı varsa sadece login zamanını güncelle
+                user.LastLoginAt = DateTime.UtcNow;
+                _context.Users.Update(user);
+                await _context.SaveChangesAsync();
 
                 return user;
             }
@@ -163,7 +140,7 @@ namespace SesliDil.Service.Services
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
         }
-        public async Task<User> UpdateProfileAsync(string userId, string? firstName, string? lastName, string? email)
+        public async Task<User> UpdateProfileAsync(string userId, string? firstName, string? lastName)
         {
             var user = await GetByIdAsync(userId);
             if (user == null)
@@ -180,12 +157,6 @@ namespace SesliDil.Service.Services
             if (!string.IsNullOrWhiteSpace(lastName) && user.LastName != lastName)
             {
                 user.LastName = lastName.Length > 100 ? lastName[..100] : lastName;
-                updated = true;
-            }
-
-            if (!string.IsNullOrWhiteSpace(email) && user.Email != email)
-            {
-                user.Email = email.Length > 255 ? email[..255] : email;
                 updated = true;
             }
 
