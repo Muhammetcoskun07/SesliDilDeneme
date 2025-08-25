@@ -106,7 +106,8 @@ namespace SesliDilDeneme.API.Hubs
 
                         double totalMinutes = agentActivity.Stopwatch.Elapsed.TotalMinutes;
                         double wordsPerMinute = totalMinutes > 0 ? agentActivity.WordCount / totalMinutes : 0;
-
+                        if (totalMinutes < 1)
+                            wordsPerMinute = Math.Round(wordsPerMinute * 2.0 / 3);
                         _logger.LogInformation(
                             $"User {userId} ended conversation {conversationId} with Agent {agentId}. " +
                             $"Duration: {totalMinutes} minutes, Messages: {agentActivity.MessageCount}, " +
