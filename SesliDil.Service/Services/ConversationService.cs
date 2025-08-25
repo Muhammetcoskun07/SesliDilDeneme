@@ -27,7 +27,7 @@ namespace SesliDil.Service.Services
         private readonly IConfiguration _configuration;
         private readonly IRepository<User> _userRepository;
 
-        public ConversationService(IRepository<Conversation> conversationRepository, IMapper mapper,IConfiguration configuration, SesliDilDbContext dbContext,IRepository<User> userRepository, HttpClient httpClient,MessageService messageService)
+        public ConversationService(IRepository<Conversation> conversationRepository, IMapper mapper, IConfiguration configuration, SesliDilDbContext dbContext, IRepository<User> userRepository, HttpClient httpClient, MessageService messageService)
             : base(conversationRepository, mapper)
         {
             _dbContext = dbContext;
@@ -42,6 +42,20 @@ namespace SesliDil.Service.Services
                 new AuthenticationHeaderValue("Bearer", _configuration["OpenAI:ApiKey"]);
         }
 
+        // === Controller'dan taşınan basit guard'lar ===
+        public async Task<Conversation> GetByIdOrThrowAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
+
+            var conversation = await GetByIdAsync<string>(id);
+            if (conversation == null)
+                throw new KeyNotFoundException();
+
+            return conversation;
+        }
+
+        // === /GET user/{userId} için (mevcut metot zaten validasyon içeriyor) ===
         public async Task<IEnumerable<ConversationDto>> GetByUserIdAsync(string userId)
         {
             if (string.IsNullOrEmpty(userId))
@@ -64,6 +78,94 @@ namespace SesliDil.Service.Services
 
             return _mapper.Map<ConversationSummaryDto>(conversation);
         }
+
+        // === /POST Create – Controller'daki oluşturma akışının taşınmış hali ===
+        public async Task<ConversationDto> CreateFromDtoAsync(CreateConversationDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.UserId))
+                throw new ArgumentException("Geçersiz konuşma verisi.");
+
+            var user = await _userRepository.GetByIdAsync(dto.UserId);
+            if (user == null)
+                throw new KeyNotFoundException();
+
+            var conversation = new Conversation
+            {
+                ConversationId = Guid.NewGuid().ToString(),
+                UserId = dto.UserId,
+                AgentId = dto.AgentId,
+                Title = dto.Title,
+                Language = user.TargetLanguage,
+                StartedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await CreateAsync(conversation);
+
+            var responseDto = new ConversationDto
+            {
+                ConversationId = conversation.ConversationId,
+                UserId = conversation.UserId,
+                AgentId = conversation.AgentId,
+                Title = conversation.Title,
+                DurationMinutes = conversation.DurationMinutes
+            };
+
+            return responseDto;
+        }
+
+        // === /PUT Update – Controller'daki güncelleme akışının taşınmış hali ===
+        public async Task<Conversation> UpdateFromDtoAsync(string id, ConversationDto conversationDto)
+        {
+            if (string.IsNullOrWhiteSpace(id) || conversationDto == null)
+                throw new ArgumentException("Geçersiz giriş.");
+
+            var conversation = await GetByIdAsync<string>(id);
+            if (conversation == null)
+                throw new KeyNotFoundException();
+
+            var user = await _userRepository.GetByIdAsync(conversationDto.UserId);
+            if (user == null)
+                throw new KeyNotFoundException();
+
+            conversation.UserId = conversationDto.UserId;
+            conversation.AgentId = conversationDto.AgentId;
+            conversation.Title = conversationDto.Title;
+            conversation.Language = user.TargetLanguage;
+            conversation.DurationMinutes = conversationDto.DurationMinutes;
+
+            await UpdateAsync(conversation);
+            return conversation;
+        }
+
+        // === /DELETE Delete – Controller guard'larının taşınmış hali ===
+        public async Task DeleteByIdAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
+
+            var conversation = await GetByIdAsync<string>(id);
+            if (conversation == null)
+                throw new KeyNotFoundException();
+
+            await DeleteAsync(conversation);
+        }
+
+        // === /GET {id}/duration – hesaplama mantığının taşınmış hali ===
+        public async Task<double> GetDurationAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Geçersiz id.");
+
+            var conversation = await GetByIdAsync<string>(id);
+            if (conversation == null)
+                throw new KeyNotFoundException();
+
+            var minutes = conversation.DurationMinutes ?? (DateTime.UtcNow - conversation.StartedAt).TotalMinutes;
+            return minutes;
+        }
+
+        // === Aşağıdakiler zaten mevcuttu: (değiştirmedim) ===
 
         public async Task<string> SaveAgentActivityAsync(
             string conversationId,
@@ -100,16 +202,18 @@ namespace SesliDil.Service.Services
             _conversationRepository.Update(conv);
             await _conversationRepository.SaveChangesAsync();
         }
-       public async Task<int> DeleteEmptyConversationsAsync()
+
+        public async Task<int> DeleteEmptyConversationsAsync()
         {
-           var deleted = await _dbContext.Database.ExecuteSqlRawAsync(@"
+            var deleted = await _dbContext.Database.ExecuteSqlRawAsync(@"
         DELETE FROM ""Conversation"" c
        WHERE NOT EXISTS (
            SELECT 1 FROM ""Message"" m WHERE m.""ConversationId"" = c.""ConversationId""
        )
     ");
-           return deleted;
-       }
+            return deleted;
+        }
+
         public async Task<ConversationSummaryResult> EndConversationAsync(string conversationId, bool forceEnd = true)
         {
             if (string.IsNullOrWhiteSpace(conversationId))
@@ -222,6 +326,7 @@ namespace SesliDil.Service.Services
                 Highlights = highlights
             };
         }
+
         public async Task<ConversationSummaryResult> GetConversationSummaryAsync(string conversationId)
         {
             // 1. Tüm mesajları sırayla al
@@ -262,8 +367,8 @@ Conversation:
                 model = "gpt-4o",
                 messages = new[]
                 {
-            new { role = "user", content = summaryPrompt }
-        },
+                    new { role = "user", content = summaryPrompt }
+                },
                 temperature = 0.5
             };
 
@@ -273,7 +378,6 @@ Conversation:
             var result = await response.Content.ReadFromJsonAsync<OpenAIChatResponse>();
             var summaryText = result?.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
 
-            
             string title = "";
 
             // 6. Özet çıktı varsa title oluştur ve Conversation tablosunu güncelle
@@ -292,8 +396,8 @@ Summary:
                     model = "gpt-4o",
                     messages = new[]
                     {
-                new { role = "user", content = titlePrompt }
-            },
+                        new { role = "user", content = titlePrompt }
+                    },
                     temperature = 0.3
                 };
 
@@ -315,16 +419,11 @@ Summary:
                 Title = title
             };
         }
-        /// <summary>
-        /// Konuşmadan kısa ve anlamlı bir summary üretir.
-        /// Öncelik: son assistant cevabı -> ilk anlamlı (system hariç) mesaj.
-        /// CorrectedText varsa onu kullanır.
-        /// </summary>
+
         private static string ComputeSummaryFromConversation(List<Message> orderedMessages)
         {
             if (orderedMessages == null || orderedMessages.Count == 0) return "";
 
-            // inline role helper
             bool IsAssistant(Message m)
             {
                 var role = (GetPropString(m, "Role")
@@ -343,7 +442,6 @@ Summary:
                 return role == "system";
             }
 
-            // 1) Son assistant cevabı
             var lastAssistant = orderedMessages
                 .Where(IsAssistant)
                 .OrderBy(m => m.CreatedAt)
@@ -359,7 +457,6 @@ Summary:
             if (lastAssistant != null)
                 candidate = pickText(lastAssistant);
 
-            // 2) Boşsa: system olmayan ilk anlamlı mesaj
             if (string.IsNullOrWhiteSpace(candidate))
             {
                 var firstMeaningful = orderedMessages
@@ -373,7 +470,6 @@ Summary:
                     candidate = pickText(firstMeaningful);
             }
 
-            // Normalize + truncate
             candidate = (candidate ?? "").Trim();
             candidate = Regex.Replace(candidate, @"\s+", " ");
             const int limit = 120;
@@ -382,7 +478,6 @@ Summary:
 
             return candidate;
         }
-
 
         private static bool IsUserMessageDynamic(Message m)
         {
@@ -456,6 +551,7 @@ Summary:
                      .Take(k)
                      .ToList();
         }
+
         public async Task<List<Message>> GetUserMessagesWithGrammarErrorsAsync(string conversationId)
         {
             return await _dbContext.Messages
@@ -465,6 +561,7 @@ Summary:
                             && m.GrammarErrors.Any())
                 .ToListAsync();
         }
+
         public async Task<List<Conversation>> SearchConversationsAsync(string searchText)
         {
             if (string.IsNullOrWhiteSpace(searchText))
@@ -478,6 +575,7 @@ Summary:
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
         }
+
         public async Task<List<Message>> GetUserMessagesWithGrammarErrorsByAgentAsync(string userId, string agentId)
         {
             // Önce o user-agent conversationlarını bul
@@ -499,6 +597,7 @@ Summary:
 
             return messages;
         }
+
         public async Task<List<Conversation>> GetConversationsByUserAndAgentAsync(string userId, string agentId)
         {
             var conversations = await _dbContext.Conversations
