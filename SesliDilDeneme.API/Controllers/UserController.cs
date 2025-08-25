@@ -238,7 +238,7 @@ namespace SesliDilDeneme.API.Controllers
         {
             try
             {
-                var user = await _userService.UpdateProfileAsync(userId, request.FirstName, request.LastName, request.Email);
+                var user = await _userService.UpdateProfileAsync(userId, request.FirstName, request.LastName);
 
                 // DTO yerine direkt anonim objeyle response dönebilirsin
                 return Ok(new
