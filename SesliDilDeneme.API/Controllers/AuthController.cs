@@ -143,28 +143,21 @@ namespace SesliDilDeneme.API.Controllers
 
             var tokenEmail = principal.Claims.FirstOrDefault(c => c.Type == "email" || c.Type == ClaimTypes.Email)?.Value;
 
+            // Email, FirstName ve LastName değerlerini request veya token’dan al
             var email = string.IsNullOrEmpty(request.Email)
                 ? (string.IsNullOrEmpty(tokenEmail) ? $"{socialId}@apple.local" : tokenEmail)
                 : request.Email;
 
-            if (!string.IsNullOrEmpty(tokenEmail) && !string.IsNullOrEmpty(request.Email) && tokenEmail != request.Email)
-                throw new ArgumentException("Email doğrulaması başarısız (EmailMismatch).");
-
-            email = email.Length > 255 ? email[..255] : email;
-
             var firstName = string.IsNullOrEmpty(request.FirstName)
                 ? (principal.Claims.FirstOrDefault(c => c.Type == "given_name" || c.Type == ClaimTypes.GivenName)?.Value ?? "Guest")
                 : request.FirstName;
-            firstName = firstName.Length > 100 ? firstName[..100] : firstName;
 
             var lastName = string.IsNullOrEmpty(request.LastName)
                 ? (principal.Claims.FirstOrDefault(c => c.Type == "family_name" || c.Type == ClaimTypes.Surname)?.Value ?? "User")
                 : request.LastName;
-            lastName = lastName.Length > 100 ? lastName[..100] : lastName;
 
+            // UserService ile getir veya oluştur, varsa güncelle
             var user = await _userService.GetOrCreateBySocialAsync("apple", socialId, email, firstName, lastName);
-            if (user == null)
-                throw new Exception("Kullanıcı oluşturulamadı.");
 
             var (accessToken, refreshToken, accessExp, refreshExp) = await IssueSessionAsync(user);
 
@@ -183,6 +176,7 @@ namespace SesliDilDeneme.API.Controllers
 
             return Ok(dto);
         }
+
 
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)

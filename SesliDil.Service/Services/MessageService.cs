@@ -92,7 +92,7 @@ Learner profile:
 - Topic interests: {topicInterests}
 
 Instructions:
-- Only check grammar errors in the NEW user message.
+- Only check grammar errors (ignore punctuation and capitalization errors completely) in the NEW user message.
 - Provide the corrected version if there are grammar errors.
 - Respond naturally in the target language.
 - Translate your response to the learner's native language.

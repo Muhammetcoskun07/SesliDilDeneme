@@ -29,35 +29,62 @@ namespace SesliDil.Service.Services
 
         public async Task<User> GetOrCreateBySocialAsync(string provider, string socialId, string email, string firstName, string lastName)
         {
-            // Veri doğrulama
             if (string.IsNullOrEmpty(provider))
                 throw new ArgumentException("SocialProvider cannot be null or empty.");
             if (string.IsNullOrEmpty(socialId))
                 throw new ArgumentException("SocialId cannot be null or empty.");
-            if (string.IsNullOrEmpty(firstName))
-                throw new ArgumentException("FirstName cannot be null or empty.");
-            if (string.IsNullOrEmpty(lastName))
-                throw new ArgumentException("LastName cannot be null or empty.");
+
             if (string.IsNullOrEmpty(email))
-                email = $"{socialId}@{provider.ToLower()}.local"; // Varsayılan e-posta
+                email = $"{socialId}@{provider.ToLower()}.local";
 
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.SocialProvider == provider && u.SocialId == socialId);
 
             if (user != null)
-                return user;
+            {
+                // Eğer daha önce kaydolmuş ama eksik bilgi varsa güncelle
+                bool updated = false;
 
+                if (!string.IsNullOrWhiteSpace(firstName) && user.FirstName != firstName)
+                {
+                    user.FirstName = firstName.Length > 100 ? firstName[..100] : firstName;
+                    updated = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(lastName) && user.LastName != lastName)
+                {
+                    user.LastName = lastName.Length > 100 ? lastName[..100] : lastName;
+                    updated = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(email) && user.Email != email)
+                {
+                    user.Email = email.Length > 255 ? email[..255] : email;
+                    updated = true;
+                }
+
+                if (updated)
+                {
+                    user.LastLoginAt = DateTime.UtcNow;
+                    _context.Users.Update(user);
+                    await _context.SaveChangesAsync();
+                }
+
+                return user;
+            }
+
+            // Yeni kullanıcı oluştur
             user = new User
             {
-                SocialProvider = provider.Length > 10 ? provider.Substring(0, 10) : provider,
-                SocialId = socialId.Length > 255 ? socialId.Substring(0, 255) : socialId,
-                Email = email?.Length > 255 ? email.Substring(0, 255) : email,
-                FirstName = firstName.Length > 100 ? firstName.Substring(0, 100) : firstName,
-                LastName = lastName.Length > 100 ? lastName.Substring(0, 100) : lastName,
-                NativeLanguage = "en", // Varsayılan dil
-                TargetLanguage = "en", // Varsayılan hedef dil
-                ProficiencyLevel = "A1", // Varsayılan yeterlilik seviyesi
-                AgeRange = "18-24", // Varsayılan yaş aralığı
+                SocialProvider = provider.Length > 10 ? provider[..10] : provider,
+                SocialId = socialId.Length > 255 ? socialId[..255] : socialId,
+                Email = email.Length > 255 ? email[..255] : email,
+                FirstName = string.IsNullOrWhiteSpace(firstName) ? "" : (firstName.Length > 100 ? firstName[..100] : firstName),
+                LastName = string.IsNullOrWhiteSpace(lastName) ? "" : (lastName.Length > 100 ? lastName[..100] : lastName),
+                NativeLanguage = "en",
+                TargetLanguage = "en",
+                ProficiencyLevel = "A1",
+                AgeRange = "18-24",
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow,
                 LearningGoals = JsonDocument.Parse("[]"),
@@ -65,7 +92,6 @@ namespace SesliDil.Service.Services
                 TopicInterests = JsonDocument.Parse("[]"),
                 WeeklySpeakingGoal = "",
             };
-
 
             try
             {
@@ -80,6 +106,7 @@ namespace SesliDil.Service.Services
 
             return user;
         }
+
 
         public async Task<bool> DeleteUserCompletelyAsync(string userId)
         {
@@ -135,6 +162,39 @@ namespace SesliDil.Service.Services
         {
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
+        }
+        public async Task<User> UpdateProfileAsync(string userId, string? firstName, string? lastName, string? email)
+        {
+            var user = await GetByIdAsync(userId);
+            if (user == null)
+                throw new KeyNotFoundException("Kullanıcı bulunamadı.");
+
+            bool updated = false;
+
+            if (!string.IsNullOrWhiteSpace(firstName) && user.FirstName != firstName)
+            {
+                user.FirstName = firstName.Length > 100 ? firstName[..100] : firstName;
+                updated = true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(lastName) && user.LastName != lastName)
+            {
+                user.LastName = lastName.Length > 100 ? lastName[..100] : lastName;
+                updated = true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(email) && user.Email != email)
+            {
+                user.Email = email.Length > 255 ? email[..255] : email;
+                updated = true;
+            }
+
+            if (updated)
+            {
+                await UpdateAsync(user);
+            }
+
+            return user;
         }
 
     }
