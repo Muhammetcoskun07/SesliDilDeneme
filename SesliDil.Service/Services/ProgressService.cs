@@ -27,6 +27,31 @@ namespace SesliDil.Service.Services
             var userProgresses=progresses.Where(p => p.UserId == userId);
             return _mapper.Map<IEnumerable<ProgressDto>>(userProgresses);
         }
+        private string DetermineLevel(int wpm)
+        {
+            if (wpm <= 15) return "A1  I know basic words and simple phrases";
+            if (wpm <= 30) return "A2  I can carry on basic conversations";
+            if (wpm <= 50) return "B1  I know basic words and simple phrases";
+            if (wpm <= 80) return "B2  I can discuss various topics with ease";
+            if (wpm <= 100) return "C1  I speak confidently in complex situations";
+            return "C2  I speak like a native in all contexts";
+        }
+
+        // Seviye yalnızca artabilir kontrolü
+        private bool IsLevelHigher(string newLevel, string currentLevel)
+        {
+            var levels = new[]
+            {
+            "A1  I know basic words and simple phrases",
+            "A2  I can carry on basic conversations",
+            "B1  I know basic words and simple phrases",
+            "B2  I can discuss various topics with ease",
+            "C1  I speak confidently in complex situations",
+            "C2  I speak like a native in all contexts"
+        };
+
+            return Array.IndexOf(levels, newLevel) > Array.IndexOf(levels, currentLevel);
+        }
         public async Task<ProgressDto> UpdateProgressAsync(string userId, int conversationTimeMinutes)
         {
             if (string.IsNullOrWhiteSpace(userId) || conversationTimeMinutes < 0)
@@ -138,30 +163,6 @@ namespace SesliDil.Service.Services
 
             await DeleteAsync(progress);
         }
-        private string DetermineLevel(int wpm)
-        {
-            if (wpm <= 15) return "A1  I know basic words and simple phrases";
-            if (wpm <= 30) return "A2  I can carry on basic conversations";
-            if (wpm <= 50) return "B1  I know basic words and simple phrases";
-            if (wpm <= 80) return "B2  I can discuss various topics with ease";
-            if (wpm <= 100) return "C1  I speak confidently in complex situations";
-            return "C2  I speak like a native in all contexts";
-        }
-
-        // Seviye yalnızca artabilir kontrolü
-        private bool IsLevelHigher(string newLevel, string currentLevel)
-        {
-            var levels = new[]
-            {
-            "A1  I know basic words and simple phrases",
-            "A2  I can carry on basic conversations",
-            "B1  I know basic words and simple phrases",
-            "B2  I can discuss various topics with ease",
-            "C1  I speak confidently in complex situations",
-            "C2  I speak like a native in all contexts"
-        };
-
-            return Array.IndexOf(levels, newLevel) > Array.IndexOf(levels, currentLevel);
-        }
+      
     }
 }
