@@ -20,16 +20,18 @@ namespace SesliDilDeneme.API.Hubs
         private readonly ConversationService _conversationService;
         private static readonly ConcurrentDictionary<string, Stopwatch> _conversationTimers = new();
         private readonly AgentActivityService _agentActivityService;
+        private readonly ProgressService _progressService;
         private readonly SesliDilDbContext _dbContext;
         private readonly IUserDailyActivityService _userDailyActivityService;
 
-        public ChatHub(MessageService messageService, ILogger<ChatHub> logger, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext,IUserDailyActivityService userDailyActivityService)
+        public ChatHub(MessageService messageService, ILogger<ChatHub> logger,ProgressService progressService, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext,IUserDailyActivityService userDailyActivityService)
         {
             _messageService = messageService;
             _logger = logger;
             _conversationService = conversationService;
             _agentActivityService = agentActivityService;
             _dbContext = dbContext;
+            _progressService = progressService;
             _userDailyActivityService = userDailyActivityService;
         }
         public override async Task OnConnectedAsync()
@@ -196,7 +198,11 @@ namespace SesliDilDeneme.API.Hubs
 
                             progress.LastConversationDate = now;
                             progress.CurrentLevel = userLevel;
-                            progress.UpdatedAt = now;
+                            string newLevel = _progressService.DetermineLevel((int)progress.BestWordsPerMinute);
+                            if (_progressService.IsLevelHigher(newLevel, progress.CurrentLevel))
+                            {
+                                progress.CurrentLevel = newLevel;
+                            }
 
                             await _dbContext.SaveChangesAsync();
 
