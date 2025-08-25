@@ -233,6 +233,31 @@ namespace SesliDilDeneme.API.Controllers
             await _userService.UpdateAsync(user);
             return Ok(user);
         }
+        [HttpPut("update-profile/{userId}")]
+        public async Task<IActionResult> UpdateProfile([FromRoute] string userId, [FromBody] UpdateProfileRequest request)
+        {
+            try
+            {
+                var user = await _userService.UpdateProfileAsync(userId, request.FirstName, request.LastName, request.Email);
+
+                // DTO yerine direkt anonim objeyle response dönebilirsin
+                return Ok(new
+                {
+                    user.UserId,
+                    user.FirstName,
+                    user.LastName,
+                    user.Email
+                });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound("Kullanıcı bulunamadı.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
         // DELETE: api/user/{id}/full-delete
         [HttpDelete("{id}/full-delete")]

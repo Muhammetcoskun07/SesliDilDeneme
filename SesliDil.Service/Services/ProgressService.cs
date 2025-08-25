@@ -32,7 +32,6 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(userId) || conversationTimeMinutes < 0)
                 throw new ArgumentException("Invalid input");
 
-            // userId ile Progress nesnesini manuel sorgulama
             var allProgress = await _progressRepository.GetAllAsync();
             var progress = allProgress.FirstOrDefault(p => p.UserId == userId)
                 ?? new Progress
@@ -45,6 +44,14 @@ namespace SesliDil.Service.Services
             progress.DailyConversationCount += 1;
             progress.TotalConversationTimeMinutes += conversationTimeMinutes;
 
+            // Yeni seviye DB'deki BestWordsPerMinute üzerinden
+            string newLevel = DetermineLevel((int)progress.BestWordsPerMinute);
+
+            // Seviye yalnızca artabilir
+            if (IsLevelHigher(newLevel, progress.CurrentLevel))
+                progress.CurrentLevel = newLevel;
+
+            // Streak güncelleme
             var previousDate = progress.LastConversationDate.Date;
             var currentDate = DateTime.UtcNow.Date;
 
@@ -61,13 +68,12 @@ namespace SesliDil.Service.Services
             if (progress.CurrentStreakDays > progress.LongestStreakDays)
                 progress.LongestStreakDays = progress.CurrentStreakDays;
 
-            progress.CurrentLevel = DetermineLevel((int)progress.BestWordsPerMinute);
-
             _progressRepository.Update(progress);
             await _progressRepository.SaveChangesAsync();
 
             return _mapper.Map<ProgressDto>(progress);
         }
+
         public async Task<Progress> GetSingleByUserIdAsync(string userId)
         {
             if (string.IsNullOrWhiteSpace(userId))
@@ -134,12 +140,28 @@ namespace SesliDil.Service.Services
         }
         private string DetermineLevel(int wpm)
         {
-            if (wpm <= 60) return "A1  I know basic words and simple phrases";
-            if (wpm <= 80) return "A2  I can carry on basic conversations";
-            if (wpm <= 100) return "B1  I know basic words and simple phrases";
-            if (wpm <= 120) return "B2  I can discuss various topics with ease";
-            if (wpm <= 140) return "C1  I speak confidently in complex situations";
+            if (wpm <= 15) return "A1  I know basic words and simple phrases";
+            if (wpm <= 30) return "A2  I can carry on basic conversations";
+            if (wpm <= 50) return "B1  I know basic words and simple phrases";
+            if (wpm <= 80) return "B2  I can discuss various topics with ease";
+            if (wpm <= 100) return "C1  I speak confidently in complex situations";
             return "C2  I speak like a native in all contexts";
+        }
+
+        // Seviye yalnızca artabilir kontrolü
+        private bool IsLevelHigher(string newLevel, string currentLevel)
+        {
+            var levels = new[]
+            {
+            "A1  I know basic words and simple phrases",
+            "A2  I can carry on basic conversations",
+            "B1  I know basic words and simple phrases",
+            "B2  I can discuss various topics with ease",
+            "C1  I speak confidently in complex situations",
+            "C2  I speak like a native in all contexts"
+        };
+
+            return Array.IndexOf(levels, newLevel) > Array.IndexOf(levels, currentLevel);
         }
     }
 }
