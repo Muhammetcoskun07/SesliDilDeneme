@@ -29,12 +29,12 @@ namespace SesliDil.Service.Services
         }
         public string DetermineLevel(int wpm)
         {
-            if (wpm <= 15) return "A1  I know basic words and simple phrases";
-            if (wpm <= 30) return "A2  I can carry on basic conversations";
-            if (wpm <= 50) return "B1  I know basic words and simple phrases";
-            if (wpm <= 80) return "B2  I can discuss various topics with ease";
-            if (wpm <= 100) return "C1  I speak confidently in complex situations";
-            return "C2  I speak like a native in all contexts";
+            if (wpm <= 15) return "Beginner";
+            if (wpm <= 30) return "Developing";
+            if (wpm <= 50) return "Intermediate";
+            if (wpm <= 80) return "Advanced";
+            if (wpm <= 100) return "Fluent";
+            return "Native";
         }
 
         // Seviye yalnızca artabilir kontrolü
@@ -42,12 +42,12 @@ namespace SesliDil.Service.Services
         {
             var levels = new[]
             {
-            "A1  I know basic words and simple phrases",
-            "A2  I can carry on basic conversations",
-            "B1  I know basic words and simple phrases",
-            "B2  I can discuss various topics with ease",
-            "C1  I speak confidently in complex situations",
-            "C2  I speak like a native in all contexts"
+            "Beginner",
+            "Developing",
+            "Intermediate",
+            "Advanced",
+            "Fluent",
+            "Native"
         };
 
             return Array.IndexOf(levels, newLevel) > Array.IndexOf(levels, currentLevel);
