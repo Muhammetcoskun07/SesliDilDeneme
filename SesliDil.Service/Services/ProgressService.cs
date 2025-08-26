@@ -167,15 +167,7 @@ namespace SesliDil.Service.Services
                 "Fluent" => "C1",
                 "Native" => "C2",
 
-                // Zaten kod olarak gelenler
-                "A1" => "A1",
-                "A2" => "A2",
-                "B1" => "B1",
-                "B2" => "B2",
-                "C1" => "C1",
-                "C2" => "C2",
 
-                // Detaylı açıklamalar
                 "A1  I know basic words and simple phrases" => "A1",
                 "A2  I can carry on basic conversations" => "A2",
                 "B1  I know basic words and simple phrases" => "B1",
