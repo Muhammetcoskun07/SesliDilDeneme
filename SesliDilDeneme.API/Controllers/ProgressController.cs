@@ -34,7 +34,22 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<IActionResult> GetByUserId(string userId)
         {
             var progresses = await _progressService.GetByUserIdAsync(userId);
-            return Ok(progresses);
+
+            var response = progresses.Select(p => new
+            {
+                p.UserId,
+                p.CurrentLevel,
+                CurrentLevelCode = _progressService.GetLevelCode(p.CurrentLevel),
+                NextLevelCode = _progressService.GetNextLevelCode(p.CurrentLevel),
+                p.DailyConversationCount,
+                p.TotalConversationTimeMinutes,
+                p.CurrentStreakDays,
+                p.LongestStreakDays,
+                p.LastConversationDate,
+                p.UpdatedAt
+            });
+
+            return Ok(response);
         }
 
         [HttpPost]
