@@ -20,16 +20,18 @@ namespace SesliDilDeneme.API.Hubs
         private readonly ConversationService _conversationService;
         private static readonly ConcurrentDictionary<string, Stopwatch> _conversationTimers = new();
         private readonly AgentActivityService _agentActivityService;
+        private readonly ProgressService _progressService;
         private readonly SesliDilDbContext _dbContext;
         private readonly IUserDailyActivityService _userDailyActivityService;
 
-        public ChatHub(MessageService messageService, ILogger<ChatHub> logger, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext,IUserDailyActivityService userDailyActivityService)
+        public ChatHub(MessageService messageService, ILogger<ChatHub> logger,ProgressService progressService, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext,IUserDailyActivityService userDailyActivityService)
         {
             _messageService = messageService;
             _logger = logger;
             _conversationService = conversationService;
             _agentActivityService = agentActivityService;
             _dbContext = dbContext;
+            _progressService = progressService;
             _userDailyActivityService = userDailyActivityService;
         }
         public override async Task OnConnectedAsync()
@@ -104,7 +106,8 @@ namespace SesliDilDeneme.API.Hubs
 
                         double totalMinutes = agentActivity.Stopwatch.Elapsed.TotalMinutes;
                         double wordsPerMinute = totalMinutes > 0 ? agentActivity.WordCount / totalMinutes : 0;
-
+                        if (totalMinutes < 1)
+                            wordsPerMinute = Math.Round(wordsPerMinute * 2.0 / 3);
                         _logger.LogInformation(
                             $"User {userId} ended conversation {conversationId} with Agent {agentId}. " +
                             $"Duration: {totalMinutes} minutes, Messages: {agentActivity.MessageCount}, " +
@@ -196,7 +199,11 @@ namespace SesliDilDeneme.API.Hubs
 
                             progress.LastConversationDate = now;
                             progress.CurrentLevel = userLevel;
-                            progress.UpdatedAt = now;
+                            string newLevel = _progressService.DetermineLevel((int)progress.BestWordsPerMinute);
+                            if (_progressService.IsLevelHigher(newLevel, progress.CurrentLevel))
+                            {
+                                progress.CurrentLevel = newLevel;
+                            }
 
                             await _dbContext.SaveChangesAsync();
 

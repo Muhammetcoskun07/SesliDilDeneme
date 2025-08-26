@@ -27,7 +27,7 @@ namespace SesliDil.Service.Services
             var userProgresses=progresses.Where(p => p.UserId == userId);
             return _mapper.Map<IEnumerable<ProgressDto>>(userProgresses);
         }
-        private string DetermineLevel(int wpm)
+        public string DetermineLevel(int wpm)
         {
             if (wpm <= 15) return "A1  I know basic words and simple phrases";
             if (wpm <= 30) return "A2  I can carry on basic conversations";
@@ -38,7 +38,7 @@ namespace SesliDil.Service.Services
         }
 
         // Seviye yalnızca artabilir kontrolü
-        private bool IsLevelHigher(string newLevel, string currentLevel)
+        public bool IsLevelHigher(string newLevel, string currentLevel)
         {
             var levels = new[]
             {
