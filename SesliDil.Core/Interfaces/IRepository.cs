@@ -22,5 +22,6 @@ namespace SesliDil.Core.Interfaces
         Task UpdateAsync(T entity);
         Task<List<Message>> GetByConversationIdAsync(string conversationId);
         Task<IEnumerable<T>> GetByAgentAsync(string agentId);
+        Task DeleteAsync(Session session);
     }
 }
