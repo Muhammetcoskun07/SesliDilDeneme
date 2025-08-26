@@ -167,6 +167,29 @@ namespace SesliDil.Service.Services
 
             return user;
         }
+        public async Task UpdateProficiencyLevelAsync(string userId, string newLevel)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return;
+
+            // WPM seviyesini CEFR seviyesine çevir
+            user.ProficiencyLevel = MapToCEFR(newLevel);
+
+            await _context.SaveChangesAsync();
+        }
+        private string MapToCEFR(string level)
+        {
+            return level switch
+            {
+                "Beginner" => "A1  I know basic words and simple phrases",
+                "Developing" => "A2  I can carry on basic conversations",
+                "Intermediate" => "B1  I know basic words and simple phrases",
+                "Advanced" => "B2  I can discuss various topics with ease",
+                "Fluent" => "C1  I speak confidently in complex situations",
+                "Native" => "C2  I speak like a native in all contexts",
+                _ => null
+            };
+        }
 
     }
 }

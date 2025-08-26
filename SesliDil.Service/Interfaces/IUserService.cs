@@ -11,5 +11,6 @@ namespace SesliDil.Service.Interfaces
     public interface IUserService : IService<User>
     {
         Task<User> GetOrCreateBySocialAsync();
+        Task UpdateProficiencyLevelAsync(string userId, string newLevel);
     }
 }
