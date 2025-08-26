@@ -40,12 +40,12 @@ namespace SesliDil.Service.Services
         {
             return level switch
             {
-                "Beginner" => 0,
-                "Developing" => 16,
-                "Intermediate" => 31,
-                "Advanced" => 51,
-                "Fluent" => 81,
-                "Native" => 101,
+                "A1" => 0,
+                "A2" => 16,
+                "B1" => 31,
+                "B2" => 51,
+                "C1" => 81,
+                "C2" => 101,
                 _ => 0
             };
         }
@@ -54,28 +54,47 @@ namespace SesliDil.Service.Services
         {
             return level switch
             {
-                "Beginner" => 15,
-                "Developing" => 30,
-                "Intermediate" => 50,
-                "Advanced" => 80,
-                "Fluent" => 100,
-                "Native" => 150, // Native için üst sınır farazi
+                "A1" => 15,
+                "A2" => 30,
+                "B1" => 50,
+                "B2" => 80,
+                "C1" => 100,
+                "C2" => 150,
                 _ => 100
             };
         }
 
-        public double GetLevelProgressPercentage(int bestWpm)
+        public double GetLevelProgressPercentage(double bestWpm, string currentLevel)
         {
-            var currentLevel = DetermineLevel(bestWpm);
-            if (currentLevel == "Native") return 100; // son level tamamlandı
+            if (string.IsNullOrWhiteSpace(currentLevel))
+                throw new ArgumentException("Current level must be provided.");
 
-            int currentMin = GetLevelMinWpm(currentLevel);
-            string nextLevel = GetNextLevelCode(currentLevel); // B1->B2 gibi
-            int nextMin = GetLevelMinWpm(nextLevel);
+            // LevelMapping ile kısa koda çevir
+            string shortLevel = LevelMapping.ContainsKey(currentLevel) ? LevelMapping[currentLevel] : currentLevel;
 
-            double progress = ((double)(bestWpm - currentMin) / (nextMin - currentMin)) * 100;
+            // En üst seviye
+            if (shortLevel == "C2") return 100;
+
+            string nextLevel = GetNextLevelCode(shortLevel);
+            if (string.IsNullOrEmpty(nextLevel)) return 100;
+
+            double currentMin = GetLevelMinWpm(shortLevel);
+            double nextMin = GetLevelMinWpm(nextLevel);
+
+            // Eğer wpm mevcut levelin altındaysa %0
+            if (bestWpm < currentMin) return 0;
+
+            double denominator = nextMin - currentMin;
+            if (denominator <= 0) return 100;
+
+            double progress = ((bestWpm - currentMin) / denominator) * 100;
+
+            // Infinity veya NaN riskine karşı
+            if (double.IsNaN(progress) || double.IsInfinity(progress)) progress = 0;
+
             return Math.Clamp(progress, 0, 100);
         }
+
 
         // Seviye yalnızca artabilir kontrolü
         public bool IsLevelHigher(string newLevel, string currentLevel)
