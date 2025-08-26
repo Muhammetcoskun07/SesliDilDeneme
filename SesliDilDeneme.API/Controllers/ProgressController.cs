@@ -42,6 +42,7 @@ namespace SesliDilDeneme.API.Controllers
                 CurrentLevelCode = _progressService.GetLevelCode(p.CurrentLevel),
                 NextLevelCode = _progressService.GetNextLevelCode(p.CurrentLevel),
                 p.DailyConversationCount,
+                p.BestWordsPerMinute,
                 p.TotalConversationTimeMinutes,
                 p.CurrentStreakDays,
                 p.LongestStreakDays,
