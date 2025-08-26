@@ -16,7 +16,8 @@ using AutoMapper;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Mvc;                         
 using SesliDilDeneme.API.Filters;                  
-using SesliDilDeneme.API.Middlewares;                    
+using SesliDilDeneme.API.Middlewares;
+using SesliDilDeneme.API.Controllers;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +37,7 @@ builder.Services.AddScoped<ProgressService>();
 builder.Services.AddScoped<AIAgentService>();
 builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<TtsService>();
+builder.Services.AddScoped<AuthService>();
 builder.Services.AddHostedService<AudioCleanupService>();
 builder.Services.AddHostedService<CleanupService>();
 builder.Services.AddSingleton<AgentActivityService>();
