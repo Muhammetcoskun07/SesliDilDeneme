@@ -36,6 +36,45 @@ namespace SesliDil.Service.Services
             if (wpm <= 100) return "Fluent";
             return "Native";
         }
+        public int GetLevelMinWpm(string level)
+        {
+            return level switch
+            {
+                "Beginner" => 0,
+                "Developing" => 16,
+                "Intermediate" => 31,
+                "Advanced" => 51,
+                "Fluent" => 81,
+                "Native" => 101,
+                _ => 0
+            };
+        }
+
+        public int GetLevelMaxWpm(string level)
+        {
+            return level switch
+            {
+                "Beginner" => 15,
+                "Developing" => 30,
+                "Intermediate" => 50,
+                "Advanced" => 80,
+                "Fluent" => 100,
+                "Native" => 150, // Native için üst sınır farazi
+                _ => 100
+            };
+        }
+
+        public double GetLevelProgressPercentage(int bestWpm)
+        {
+            var currentLevel = DetermineLevel(bestWpm);
+            if (currentLevel == "Native") return 100;
+
+            int min = GetLevelMinWpm(currentLevel);
+            int max = GetLevelMaxWpm(currentLevel);
+
+            double progress = ((double)(bestWpm - min) / (max - min)) * 100;
+            return Math.Clamp(progress, 0, 100);
+        }
 
         // Seviye yalnızca artabilir kontrolü
         public bool IsLevelHigher(string newLevel, string currentLevel)

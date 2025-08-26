@@ -34,20 +34,26 @@ namespace SesliDilDeneme.API.Controllers
         public async Task<IActionResult> GetByUserId(string userId)
         {
             var progresses = await _progressService.GetByUserIdAsync(userId);
-
-            var response = progresses.Select(p => new
+            var response = progresses.Select(p =>
             {
-                p.UserId,
-                p.CurrentLevel,
-                CurrentLevelCode = _progressService.GetLevelCode(p.CurrentLevel),
-                NextLevelCode = _progressService.GetNextLevelCode(p.CurrentLevel),
-                p.DailyConversationCount,
-                p.BestWordsPerMinute,
-                p.TotalConversationTimeMinutes,
-                p.CurrentStreakDays,
-                p.LongestStreakDays,
-                p.LastConversationDate,
-                p.UpdatedAt
+                var currentLevel = p.CurrentLevel;
+                var levelProgress = _progressService.GetLevelProgressPercentage((int)p.BestWordsPerMinute);
+
+                return new
+                {
+                    p.UserId,
+                    CurrentLevel = currentLevel,
+                    CurrentLevelCode = _progressService.GetLevelCode(currentLevel),
+                    NextLevelCode = _progressService.GetNextLevelCode(currentLevel),
+                    p.DailyConversationCount,
+                    p.BestWordsPerMinute,
+                    LevelProgressPercentage = levelProgress, // burası çubukta doluluk oranı gibi kullanılabilir
+                    p.TotalConversationTimeMinutes,
+                    p.CurrentStreakDays,
+                    p.LongestStreakDays,
+                    p.LastConversationDate,
+                    p.UpdatedAt
+                };
             });
 
             return Ok(response);

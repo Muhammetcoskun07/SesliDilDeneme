@@ -621,22 +621,6 @@ Summary:
 
             return conversations;
         }
-        public async Task<int> DeleteShortConversationsAsync()
-        {
-            var allConversations = await _conversationRepository.GetAllAsync();
-
-            // 1 dakikadan kısa olanları seç
-            var shortConversations = allConversations
-                .Where(c => c.DurationMinutes < 1)  // DurationMinutes property’si var varsayımıyla
-                .ToList();
-
-            foreach (var convo in shortConversations)
-            {
-                _conversationRepository.Delete(convo);
-            }
-
-            await _conversationRepository.SaveChangesAsync();
-            return shortConversations.Count;
-        }
+      
     }
 }
