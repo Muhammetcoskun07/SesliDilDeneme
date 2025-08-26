@@ -67,12 +67,13 @@ namespace SesliDil.Service.Services
         public double GetLevelProgressPercentage(int bestWpm)
         {
             var currentLevel = DetermineLevel(bestWpm);
-            if (currentLevel == "Native") return 100;
+            if (currentLevel == "Native") return 100; // son level tamamlandı
 
-            int min = GetLevelMinWpm(currentLevel);
-            int max = GetLevelMaxWpm(currentLevel);
+            int currentMin = GetLevelMinWpm(currentLevel);
+            string nextLevel = GetNextLevelCode(currentLevel); // B1->B2 gibi
+            int nextMin = GetLevelMinWpm(nextLevel);
 
-            double progress = ((double)(bestWpm - min) / (max - min)) * 100;
+            double progress = ((double)(bestWpm - currentMin) / (nextMin - currentMin)) * 100;
             return Math.Clamp(progress, 0, 100);
         }
 
