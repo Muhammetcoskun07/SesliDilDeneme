@@ -31,18 +31,20 @@ namespace SesliDil.Service.Services
                     using var scope = _serviceProvider.CreateScope();
                     var conversationService = scope.ServiceProvider.GetRequiredService<ConversationService>();
 
-                    int deletedCount = await conversationService.DeleteEmptyConversationsAsync();
-                    Console.WriteLine($"[{DateTime.Now}] Boş conversationlar temizlendi. Silinen kayıt sayısı: {deletedCount}");
+                    // Burada 1 dakikadan kısa conversationları siliyoruz
+                    int deletedCount = await conversationService.DeleteShortConversationsAsync();
+                    Console.WriteLine($"[{DateTime.Now}] 1 dakikadan kısa conversationlar temizlendi. Silinen kayıt sayısı: {deletedCount}");
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Hata: {ex.Message}");
                 }
             },
-            null, TimeSpan.Zero, _interval); // Başlangıçta hemen, sonra aralıklarla
+  null, TimeSpan.Zero, _interval);
 
             return Task.CompletedTask;
         }
+
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
