@@ -90,5 +90,10 @@ namespace SesliDil.Data.Repositories
                 .Where(e => EF.Property<string>(e, "AgentId") == agentId)
                 .ToListAsync();
         }
+
+        public Task DeleteAsync(Session session)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

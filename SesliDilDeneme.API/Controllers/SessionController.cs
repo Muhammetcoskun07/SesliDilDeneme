@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using SesliDil.Core.DTOs;
 using SesliDil.Core.Entities;
 using SesliDil.Service.Services;
@@ -31,13 +30,7 @@ namespace SesliDilDeneme.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Geçersiz id.");
-
-            var session = await _sessionService.GetByIdAsync<string>(id);
-            if (session is null)
-                throw new KeyNotFoundException();
-
+            var session = await _sessionService.GetByIdOrThrowAsync(id);
             return Ok(session);
         }
 
@@ -45,18 +38,8 @@ namespace SesliDilDeneme.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] SessionDto dto)
         {
-            if (dto is null || string.IsNullOrWhiteSpace(dto.UserId))
-                throw new ArgumentException("UserId zorunludur.");
-
-            var session = new Session
-            {
-                SessionId = Guid.NewGuid().ToString(),
-                UserId = dto.UserId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _sessionService.CreateAsync(session);
-
+            // Validasyon service içinde
+            var session = await _sessionService.CreateFromDtoAsync(dto?.UserId ?? string.Empty);
             return CreatedAtAction(nameof(GetById), new { id = session.SessionId }, session);
         }
 
@@ -64,15 +47,8 @@ namespace SesliDilDeneme.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Geçersiz id.");
-
-            var session = await _sessionService.GetByIdAsync<string>(id);
-            if (session is null)
-                throw new KeyNotFoundException();
-
-            await _sessionService.DeleteAsync(session);
-            return Ok(new { Deleted = true, Id = id });
+            await _sessionService.DeleteByIdAsync(id);
+            return NoContent();
         }
     }
 }
