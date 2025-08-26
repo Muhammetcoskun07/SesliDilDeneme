@@ -167,7 +167,7 @@ namespace SesliDil.Service.Services
                 "Fluent" => "C1",
                 "Native" => "C2",
 
-                // Detaylı proficiency açıklamaları
+
                 "A1  I know basic words and simple phrases" => "A1",
                 "A2  I can carry on basic conversations" => "A2",
                 "B1  I know basic words and simple phrases" => "B1",
