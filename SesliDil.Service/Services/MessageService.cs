@@ -92,7 +92,7 @@ Learner profile:
 - Topic interests: {topicInterests}
 
 Instructions:
-- Only check grammar errors (ignore punctuation and capitalization errors completely) in the NEW user message.
+- Only check grammar errors in the NEW user message.Ignore capitalization and punctuation completely.
 - Provide the corrected version if there are grammar errors.
 - Respond naturally in the target language.
 - Translate your response to the learner's native language.
@@ -146,7 +146,17 @@ Always return 'correctedText' as empty string "" if there are no errors.
                     jsonText = jsonText.Substring(firstBrace, lastBrace - firstBrace + 1);
             }
 
-            var parsed = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(jsonText);
+            Dictionary<string, JsonElement>? parsed = null;
+
+            try
+            {
+                parsed = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(jsonText);
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"JSON parse hatası: {ex.Message}");
+                Console.WriteLine($"Gelen içerik: {jsonText}");
+            }
 
             var correctedText = parsed.ContainsKey("correctedText") ? parsed["correctedText"].GetString() ?? "" : "";
             var aiText = parsed.ContainsKey("aiText") ? parsed["aiText"].GetString() ?? "" : "";
