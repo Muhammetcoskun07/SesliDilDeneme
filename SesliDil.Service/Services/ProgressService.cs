@@ -152,46 +152,42 @@ namespace SesliDil.Service.Services
             await UpdateAsync(progress);
             return progress;
         }
+        private static readonly Dictionary<string, string> LevelMapping = new()
+        {
+            // Kısa isimler
+            ["Beginner"] = "A1",
+            ["Developing"] = "A2",
+            ["Intermediate"] = "B1",
+            ["Advanced"] = "B2",
+            ["Fluent"] = "C1",
+            ["Native"] = "C2",
+
+            // Zaten kod olarak gelenler
+            ["A1"] = "A1",
+            ["A2"] = "A2",
+            ["B1"] = "B1",
+            ["B2"] = "B2",
+            ["C1"] = "C1",
+            ["C2"] = "C2",
+
+            // Detaylı açıklamalar
+            ["A1  I know basic words and simple phrases"] = "A1",
+            ["A2  I can carry on basic conversations"] = "A2",
+            ["B1  I know basic words and simple phrases"] = "B1",
+            ["B2  I can discuss various topics with ease"] = "B2",
+            ["C1  I speak confidently in complex situations"] = "C1",
+            ["C2  I speak like a native in all contexts"] = "C2"
+        };
         public string GetLevelCode(string level)
         {
             if (string.IsNullOrWhiteSpace(level))
                 return null;
 
-            return level switch
-            {
-                // Kısa isimler
-                "Beginner" => "A1",
-                "Developing" => "A2",
-                "Intermediate" => "B1",
-                "Advanced" => "B2",
-                "Fluent" => "C1",
-                "Native" => "C2",
-
-                // Zaten kod olarak gelenler
-                "A1" => "A1",
-                "A2" => "A2",
-                "B1" => "B1",
-                "B2" => "B2",
-                "C1" => "C1",
-                "C2" => "C2",
-
-                // Detaylı açıklamalar
-                "A1  I know basic words and simple phrases" => "A1",
-                "A2  I can carry on basic conversations" => "A2",
-                "B1  I know basic words and simple phrases" => "B1",
-                "B2  I can discuss various topics with ease" => "B2",
-                "C1  I speak confidently in complex situations" => "C1",
-                "C2  I speak like a native in all contexts" => "C2",
-
-                _ => null
-            };
+            return LevelMapping.TryGetValue(level, out var code) ? code : null;
         }
-
         public string GetNextLevelCode(string level)
         {
-            // Önce mevcut seviyeyi A1–C2 koduna çevir
             var currentCode = GetLevelCode(level);
-
             if (string.IsNullOrEmpty(currentCode))
                 return null;
 
@@ -199,7 +195,7 @@ namespace SesliDil.Service.Services
             var index = Array.IndexOf(order, currentCode);
 
             if (index == -1 || index == order.Length - 1)
-                return null; // son seviye ise null
+                return null; // En üst seviyedeyiz
 
             return order[index + 1];
         }
