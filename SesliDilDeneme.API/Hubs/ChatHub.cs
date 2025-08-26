@@ -18,16 +18,18 @@ namespace SesliDilDeneme.API.Hubs
         private readonly MessageService _messageService;
         private readonly ILogger<ChatHub> _logger;
         private readonly ConversationService _conversationService;
+        private readonly UserService _userService;
         private static readonly ConcurrentDictionary<string, Stopwatch> _conversationTimers = new();
         private readonly AgentActivityService _agentActivityService;
         private readonly ProgressService _progressService;
         private readonly SesliDilDbContext _dbContext;
         private readonly IUserDailyActivityService _userDailyActivityService;
 
-        public ChatHub(MessageService messageService, ILogger<ChatHub> logger,ProgressService progressService, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext,IUserDailyActivityService userDailyActivityService)
+        public ChatHub(MessageService messageService, ILogger<ChatHub> logger,UserService userService,ProgressService progressService, ConversationService conversationService,AgentActivityService agentActivityService,SesliDilDbContext dbContext,IUserDailyActivityService userDailyActivityService)
         {
             _messageService = messageService;
             _logger = logger;
+            _userService = userService;
             _conversationService = conversationService;
             _agentActivityService = agentActivityService;
             _dbContext = dbContext;
@@ -203,6 +205,7 @@ namespace SesliDilDeneme.API.Hubs
                             if (_progressService.IsLevelHigher(newLevel, progress.CurrentLevel))
                             {
                                 progress.CurrentLevel = newLevel;
+                                await _userService.UpdateProficiencyLevelAsync(progress.UserId, newLevel);
                             }
 
                             await _dbContext.SaveChangesAsync();
