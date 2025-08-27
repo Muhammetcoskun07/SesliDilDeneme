@@ -23,6 +23,12 @@ namespace SesliDil.Service.Services
             if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(agentId))
                 throw new ArgumentException("UserId ve AgentId zorunludur.");
 
+            // 1. Conversation tablosundan gerçek conversation sayısı al
+            var conversationCount = await _context.Conversations
+                .Where(c => c.UserId == userId && c.AgentId == agentId)
+                .CountAsync();
+
+            // 2. Activity tablosundan istatistikleri al
             var activities = await _context.ConversationAgentActivities
                 .Where(a => a.UserId == userId && a.AgentId == agentId)
                 .ToListAsync();
@@ -30,6 +36,7 @@ namespace SesliDil.Service.Services
             if (activities == null || !activities.Any())
                 throw new KeyNotFoundException("İlgili user/agent için stat bulunamadı.");
 
+            // 3. DTO döndür
             return new UserAgentStatsDto
             {
                 AgentId = agentId,
@@ -37,9 +44,11 @@ namespace SesliDil.Service.Services
                 TotalMessages = activities.Sum(a => a.MessageCount),
                 TotalWords = activities.Sum(a => a.WordCount),
                 AverageWPM = activities.Average(a => a.WordsPerMinute),
-                ConversationCount = activities.Select(a => a.ConversationId).Distinct().Count()
+                // Conversation tablosundaki kesin sayıyı kullan
+                ConversationCount = conversationCount
             };
         }
+
 
         public async Task<List<UserAgentStatsDto>> GetUserAllAgentStatsAsync(string userId)
         {
