@@ -141,7 +141,7 @@ namespace SesliDilDeneme.API.Hubs
                         {
                             if (wordsPerMinute > progress.BestWordsPerMinute)
                             {
-                                progress.BestWordsPerMinute = wordsPerMinute;
+                                progress.BestWordsPerMinute = Math.Min(wordsPerMinute, 100);
                             }
 
                             var lastDate = progress.LastConversationDate.Date;
@@ -158,7 +158,7 @@ namespace SesliDilDeneme.API.Hubs
                             {
                                 var newActivity = new UserDailyActivityDto
                                 {
-                                    Id = Guid.NewGuid().ToString(), // ID atandı
+                                    Id = Guid.NewGuid().ToString(),
                                     UserId = userId,
                                     Date = today,
                                     MinutesSpent = (int)Math.Round(totalMinutes)
@@ -254,10 +254,6 @@ namespace SesliDilDeneme.API.Hubs
                         _logger.LogWarning($"Failed to remove agentId {agentId} for userId {userId} in conversationId {conversationId}");
                     }
 
-                    // Agent dictionary boşsa user'ı kaldır
-
-
-                    // User dictionary boşsa conversation'ı kaldır
 
                 }
             }
