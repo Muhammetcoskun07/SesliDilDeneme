@@ -185,7 +185,7 @@ namespace SesliDil.Service.Services
                 Duration = duration,
                 MessageCount = messageCount,
                 WordCount = wordCount,
-                WordsPerMinute = wordsPerMinute,
+                WordsPerMinute = Math.Min(wordsPerMinute, 100),
             };
 
             await _dbContext.ConversationAgentActivities.AddAsync(activity);
