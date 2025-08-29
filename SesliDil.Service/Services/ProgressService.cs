@@ -229,6 +229,14 @@ namespace SesliDil.Service.Services
             ["C1"] = "C1",
             ["C2"] = "C2",
 
+            ["a1"] = "A1",
+            ["a2"] = "A2",
+            ["b1"] = "B1",
+            ["b2"] = "B2",
+            ["c1"] = "C1",
+            ["c2"] = "C2",
+
+
             // Detaylı açıklamalar
             ["A1  I know basic words and simple phrases"] = "A1",
             ["A2  I can carry on basic conversations"] = "A2",
