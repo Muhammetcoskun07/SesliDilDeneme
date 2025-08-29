@@ -94,7 +94,19 @@ namespace SesliDil.Service.Services
 
             return Math.Clamp(progress, 0, 100);
         }
-
+        public string GetLevelName(string level)
+        {
+            return level switch
+            {
+                "A1" => "Beginner",
+                "A2" => "Developing",
+                "B1" => "Intermediate",
+                "B2" => "Advanced",
+                "C1" => "Fluent",
+                "C2" => "Native",
+                _ => level // eğer zaten uzun isimse
+            };
+        }
 
         // Seviye yalnızca artabilir kontrolü
         public bool IsLevelHigher(string newLevel, string currentLevel)
