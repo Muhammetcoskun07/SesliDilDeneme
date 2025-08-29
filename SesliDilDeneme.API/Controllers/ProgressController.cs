@@ -41,7 +41,7 @@ namespace SesliDilDeneme.API.Controllers
                 return new
                 {
                     p.UserId,
-                    CurrentLevel = p.CurrentLevel,
+                    CurrentLevel = _progressService.GetLevelName(p.CurrentLevel),
                     CurrentLevelCode = _progressService.GetLevelCode(p.CurrentLevel),
                     NextLevelCode = _progressService.GetNextLevelCode(p.CurrentLevel),
                     p.DailyConversationCount,
